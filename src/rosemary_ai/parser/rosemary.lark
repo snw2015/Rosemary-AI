@@ -1,0 +1,32 @@
+%import common.WS
+%import common.INT
+%import common.STRING
+
+%ignore WS
+
+COMMENT: "<!--" /(.|\s)*?/ "-->"
+%ignore COMMENT
+
+rosemary: (xml_element)*
+
+?xml_element: element_with_body | element_without_body
+
+element_with_body: "<" element_indicator attributes ">" element_body_items "</" element_indicator ">"
+element_without_body: "<" element_indicator attributes "/>"
+element_indicator: INDICATOR_NAME ("." INDICATOR_NAME)*
+
+element_body_items: element_body_item*
+?element_body_item: xml_element | xml_text
+attributes: attribute*
+?attribute: attribute_with_value | attribute_without_value
+attribute_with_value: INDICATOR_NAME "=" "\"" ATTRIBUTE_VALUE? "\""
+attribute_without_value: INDICATOR_NAME
+
+xml_text: text_token+
+?text_token: placeholder | plain_text
+plain_text: /([^<>{}]|<<|>>|{{|}})+/
+placeholder: "{" DATA_INDICATOR? "}"
+
+DATA_INDICATOR: /([^{}]|{{|}})+/
+INDICATOR_NAME: /[a-zA-Z_-][a-zA-Z0-9_-]*/
+ATTRIBUTE_VALUE: /([^"\\]|\\\"|\\\\)+/
