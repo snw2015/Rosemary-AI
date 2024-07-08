@@ -1,7 +1,7 @@
 from typing import List
 
 from .generator import AbstractContentGenerator
-from .gpt_generator import GPTGenerator
+from .gpt_generator import GPTChatGenerator, GPTImageGenerator
 
 _model_generators = {}
 
@@ -28,6 +28,8 @@ def generator_list() -> list[str]:
     return list(_model_generators.keys())
 
 
-register_generator(['gpt-3.5-t', 'gpt-3.5-turbo'], GPTGenerator('gpt-3.5-turbo'))
-register_generator(['gpt-4-t', 'gpt-4-turbo'], GPTGenerator('gpt-4-turbo'))
-register_generator('gpt-4o', GPTGenerator('gpt-4o'))
+register_generator(['gpt-3.5-t', 'gpt-3.5-turbo'], GPTChatGenerator('gpt-3.5-turbo'))
+register_generator(['gpt-4-t', 'gpt-4-turbo'], GPTChatGenerator('gpt-4-turbo'))
+register_generator('gpt-4o', GPTChatGenerator('gpt-4o'))
+register_generator('dall-e-3', GPTImageGenerator('dall-e-3'))
+

@@ -1,0 +1,9 @@
+<corolla name="_gpt">
+    <template name="message" var="role" slot="@content">
+        <dict>
+            <dict-item key_eval="role">
+                <content/>
+            </dict-item>
+        </dict>
+    </template>
+</corolla>

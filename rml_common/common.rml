@@ -1,0 +1,35 @@
+<import path="_utils.rml"/>
+<import path="_gpt.rml"/>
+
+<corolla name="gpt">
+    <template name="chat" var="max_tokens, temperature" slot="message(role)">
+        <dict>
+            <dict-item key="messages">
+                <list>
+                    <for slot="message">
+                        <list-item>
+                            <_gpt.message role="role">
+                                <message/>
+                            </_gpt.message>
+                        </list-item>
+                    </for>
+                </list>
+            </dict-item>
+            <_utils.option name="'max_tokens'" value="max_tokens"/>
+            <_utils.option name="'temperature'" value="temperature"/>
+        </dict>
+    </template>
+
+    <corolla name="image">
+        <template name="generate" var="strict" slot="@prompt">
+            <dict>
+                <dict-item key="prompt">
+                    <if cond="strict">
+                        I NEED to test how the tool works with extremely simple prompts. DO NOT add any detail, just use it AS-IS:
+                    </if>
+                    <prompt/>
+                </dict-item>
+            </dict>
+        </template>
+    </corolla>
+</corolla>

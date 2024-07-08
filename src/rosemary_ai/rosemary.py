@@ -9,6 +9,47 @@ from .parser.parser import RosemaryParser
 from ._utils._str_utils import full_name_to_indicator  # noqa
 
 
+def _generate(petal: RosemaryPetal, model_name: str, options: Dict[str, Any],
+              target_obj, args: Dict[str, Any]) -> Any:
+    if options is None:
+        options = {}
+
+    data = _format(petal, args)
+
+    generator = get_generator(model_name)
+    # TODO if no model name given, use default model defined in petal
+
+    raw_str = generator.generate(data, options)
+
+    target_obj, succeed = _parse(petal, args, raw_str, target_obj=target_obj)
+
+    if succeed:
+        return target_obj
+    else:
+        raise ValueError(f'Failed to parse {raw_str}')
+
+
+def _generate_stream(petal: RosemaryPetal, model_name: str, options: Dict[str, Any],
+                     target_obj, args: Dict[str, Any]) -> Generator[Any, None, None]:
+    if options is None:
+        options = {}
+
+    data = _format(petal, args)
+
+    generator = get_generator(model_name)
+    # TODO if no model name given, use default model defined in petal
+
+    succeed = False
+    raw_str = ''
+    for raw_str in generator.generate_stream(data, options):
+        target_obj, succeed = _parse(petal, args, raw_str, target_obj=target_obj)
+
+        yield target_obj
+
+    if not succeed:
+        raise ValueError(f'Failed to parse {raw_str}')
+
+
 class Rosemary:
     def __init__(self, src_path: str):
         self._build_from_src(src_path)
@@ -21,22 +62,19 @@ class Rosemary:
         petal = self.namespace.get_by_indicator(full_name_to_indicator(function_name))
 
         def func(target_obj=None, model_name: str = None, options: Dict[str, Any] = None, **args) -> Any:
-            if options is None:
-                options = {}
+            return _generate(petal, model_name, options, target_obj, args)
 
-            data = _format(petal, args)
+        return func
 
-            generator = get_generator(model_name)
-            # TODO if no model name given, use default model defined in petal
+    def get_function_bind(self, function_name: str) -> Callable:
+        petal = self.namespace.get_by_indicator(full_name_to_indicator(function_name))
 
-            raw_str = generator.generate(data, options)
+        def func(self_, target_obj=None, model_name: str = None, options: Dict[str, Any] = None, **args) -> Any:
+            args['self'] = self_
+            if target_obj is None:
+                target_obj = self_
 
-            target_obj, succeed = _parse(petal, args, raw_str, target_obj=target_obj)
-
-            if succeed:
-                return target_obj
-            else:
-                raise ValueError(f'Failed to parse {raw_str}')
+            return _generate(petal, model_name, options, target_obj, args)
 
         return func
 
@@ -45,23 +83,22 @@ class Rosemary:
 
         def func(target_obj=None, model_name: str = None, options: Dict[str, Any] = None, **args) -> (
                 Generator[Any, None, None]):
-            if options is None:
-                options = {}
+            for data in _generate_stream(petal, model_name, options, target_obj, args):
+                yield data
 
-            data = _format(petal, args)
+        return func
 
-            generator = get_generator(model_name)
-            # TODO if no model name given, use default model defined in petal
+    def get_function_stream_bind(self, function_name: str) -> Callable:
+        petal = self.namespace.get_by_indicator(full_name_to_indicator(function_name))
 
-            succeed = False
-            raw_str = ''
-            for raw_str in generator.generate_stream(data, options):
-                target_obj, succeed = _parse(petal, args, raw_str, target_obj=target_obj)
+        def func(self_, target_obj=None, model_name: str = None, options: Dict[str, Any] = None, **args) -> (
+                Generator[Any, None, None]):
+            args['self'] = self_
+            if target_obj is None:
+                target_obj = self_
 
-                yield target_obj
-
-            if not succeed:
-                raise ValueError(f'Failed to parse {raw_str}')
+            for data in _generate_stream(petal, model_name, options, target_obj, args):
+                yield data
 
         return func
 
@@ -90,6 +127,9 @@ def _format(petal: RosemaryPetal, data: Dict[str, Any]) -> Any:
     if petal.formatter_rml is None:
         return data
 
+    if petal.variable_names:
+        data = {name: None for name in petal.variable_names} | data
+
     env = _build_environment(petal, data.copy())
     executor = FormatExecutor()
 
@@ -105,7 +145,12 @@ def _parse(petal: RosemaryPetal, data: Dict[str, Any], raw_str: str, target_obj=
     if petal.parser_rml is None:
         return raw_str, True
 
-    data = data | {petal.target: target_obj if target_obj is not None else eval(petal.init)}
+    if petal.variable_names:
+        data = {name: None for name in petal.variable_names} | data
+
+    if petal.target:
+        data = data | {petal.target: target_obj if target_obj is not None else eval(petal.init)}
+
     env = _build_environment(petal, data)
     executor = ParseExecutor(raw_str)
 
@@ -113,4 +158,4 @@ def _parse(petal: RosemaryPetal, data: Dict[str, Any], raw_str: str, target_obj=
 
     executor.activate_assignments(succeed)
 
-    return data[petal.target], succeed
+    return data.get(petal.target), succeed

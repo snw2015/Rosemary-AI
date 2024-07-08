@@ -2,12 +2,13 @@ from pathlib import Path
 
 from lark import Lark
 
-from .._utils._file_utils import read_and_close_file_to_root, read_and_close_file # noqa
+from .._utils._file_utils import read_and_close_file_to_root, read_and_close_file, _get_proj_root  # noqa
 from .namespace import Namespace
 from .leaf_elements import rml_to_petal, rml_to_template, RosemaryNamespace
 from .transformer import RmlElement, TreeToRmlTreeTransformer
 
 GRAMMAR_PATH = "src/rosemary_ai/parser/rosemary.lark"
+RML_COMMON_PATH = "rml_common/common.rml"
 
 
 class RosemaryParser:
@@ -17,9 +18,13 @@ class RosemaryParser:
         self.transformer = TreeToRmlTreeTransformer()
 
         self.imported_namespaces = {}
-        self.path_stack = [Path(src_path).resolve()]
 
-        rml_tree = self._src_to_rml_tree(read_and_close_file(src_path))
+        if src_path == 'common':
+            rml_tree = self._src_to_rml_tree(read_and_close_file_to_root(RML_COMMON_PATH))
+            self.path_stack = [_get_proj_root() / RML_COMMON_PATH]
+        else:
+            rml_tree = self._src_to_rml_tree(read_and_close_file(src_path))
+            self.path_stack = [Path(src_path).resolve()]
         self.namespace = self._rml_tree_to_namespace(rml_tree)
 
     def _rml_tree_to_namespace(self, tree: RmlElement, parent_namespace: RosemaryNamespace = None) -> RosemaryNamespace:
@@ -50,6 +55,9 @@ class RosemaryParser:
         return namespace
 
     def _parse_file(self, path_str: str) -> RosemaryNamespace:
+        if path_str == 'common':
+            return _COMMON_NAMESPACE
+
         assert self.path_stack
         path = (self.path_stack[-1].parent / Path(path_str)).resolve()
 
@@ -65,3 +73,6 @@ class RosemaryParser:
 
     def _src_to_rml_tree(self, src: str) -> RmlElement:
         return self.transformer.transform(self.parser.parse(src))
+
+
+_COMMON_NAMESPACE = RosemaryParser('common').namespace

@@ -6,7 +6,8 @@ from .data_expression import DataExpression
 from .leaf_elements import VariableContext
 
 IsPlainText: TypeAlias = bool
-Value: TypeAlias = str | DataExpression | Image
+OutputValue: TypeAlias = str | Image
+Value: TypeAlias = OutputValue | DataExpression
 IsSucceed: TypeAlias = bool
 
 
@@ -34,16 +35,16 @@ class Executor(metaclass=ABCMeta):
 
 class FormatExecutor(Executor):
     def __init__(self):
-        self.scope_stack: List[None | str | List | Dict] = [None]
+        self.scope_stack: List[OutputValue | List | Dict | None] = [None]
         self.key_stack: List[str] = []
 
     def execute(self, value: Value, variables: VariableContext) -> IsSucceed:
         if isinstance(value, DataExpression):
-            value: DataExpression
-            value = value.evaluate(variables)
+            value = str(value.evaluate(variables))
 
         if self.scope_stack[-1] is None:
             self.scope_stack[-1] = []
+
         self.scope_stack[-1] += [value]
 
         return True
@@ -140,6 +141,6 @@ class ParseExecutor(Executor):
     def activate_assignments(self, assign_remain: bool):
         if self.last_target_repr_with_var and assign_remain:
             target_repr, var = self.last_target_repr_with_var
-            self.assign_with_var_list += [(target_repr + f'{repr(self.raw_str)}', var)]
+            self.assign_with_var_list += [(target_repr + f'={repr(self.raw_str)}', var)]
         for assign, env in self.assign_with_var_list:
             assign.execute(env, False)

@@ -24,6 +24,8 @@ dependencies = [
 [tool.hatch.build.targets.sdist]
 include = [
     ".lark",
+    "rml_common/",
+    "src/"
 ]
 exclude = [
     "tests",
@@ -31,4 +33,11 @@ exclude = [
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/rosemary_ai"]
-
+include = [
+    ".lark",
+    "rml_common/",
+    "src/"
+]
+exclude = [
+    "tests",
+]

@@ -1,0 +1,11 @@
+<corolla name="_utils">
+    <template name="option" var="name, value">
+        <if cond="value is not None">
+            <dict>
+                <dict-item key="name">
+                    {value}
+                </dict-item>
+            </dict>
+        </if>
+    </template>
+</corolla>

@@ -1,4 +1,6 @@
-from .leaf_elements import VariableContext
+from typing import TypeAlias, Dict, Any
+
+VariableContext: TypeAlias = Dict[str, Any]
 
 
 class DataExpression:
