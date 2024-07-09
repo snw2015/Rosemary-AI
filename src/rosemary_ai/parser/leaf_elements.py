@@ -83,7 +83,7 @@ class RosemaryPetal:
         return self.__str__()
 
 
-def _build_environment(petal, data: VariableContext) -> Environment:
+def build_environment(petal, data: VariableContext) -> Environment:
     context = data
     slots = {}
     namespace = petal.namespace
@@ -109,7 +109,7 @@ def rml_to_petal(tree: RmlElement, namespace: RosemaryNamespace) -> RosemaryPeta
     if 'var' in tree.attributes:
         variable_names = list(map(str.strip, tree.attributes['var'].split(',')))
     return RosemaryPetal(formatter, parser, namespace, variable_names, target,
-                         tree.attributes['init'] if 'init' in tree.attributes else '{}')
+                         tree.attributes['init'] if 'init' in tree.attributes else 'None')
 
 
 def _get_slot_var(str_repr: str) -> Dict[str, List[str]]:

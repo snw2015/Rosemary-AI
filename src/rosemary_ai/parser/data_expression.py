@@ -24,9 +24,8 @@ class DataExpression:
         else:
             exec(self._value, context)
 
-    def __add__(self, other) -> 'DataExpression':
-        if isinstance(other, str):
-            return DataExpression(self._value + other)
-        if not isinstance(other, DataExpression):
-            return DataExpression(self._value + f'{other}')
-        return DataExpression(self._value + other._value)
+    def __str__(self):
+        return f'DataExpression<{self._value}>'
+
+    def __repr__(self):
+        return self.__str__()

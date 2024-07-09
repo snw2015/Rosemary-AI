@@ -7,7 +7,7 @@ from .namespace import Namespace
 from .leaf_elements import rml_to_petal, rml_to_template, RosemaryNamespace
 from .transformer import RmlElement, TreeToRmlTreeTransformer
 
-GRAMMAR_PATH = "src/rosemary_ai/parser/rosemary.lark"
+GRAMMAR_PATH = "parser/rosemary.lark"
 RML_COMMON_PATH = "rml_common/common.rml"
 
 

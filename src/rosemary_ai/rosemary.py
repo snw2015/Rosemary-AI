@@ -2,7 +2,7 @@ from typing import Callable, Dict, Any, Tuple, Generator
 
 from .models.generator_registry import get_generator
 from .parser.executor import FormatExecutor, ParseExecutor
-from .parser.leaf_elements import RosemaryPetal, _build_environment  # noqa
+from .parser.leaf_elements import RosemaryPetal, build_environment
 from .parser.traverse import traverse_all
 from .parser.namespace import Namespace
 from .parser.parser import RosemaryParser
@@ -58,44 +58,60 @@ class Rosemary:
         rosemary_parser = RosemaryParser(src_path)
         self.namespace: Namespace = rosemary_parser.namespace
 
-    def get_function(self, function_name: str) -> Callable:
+    def get_function(self, function_name: str,
+                     model_name_: str = None, options_: Dict[str, Any] = None) -> Callable:
         petal = self.namespace.get_by_indicator(full_name_to_indicator(function_name))
 
-        def func(target_obj=None, model_name: str = None, options: Dict[str, Any] = None, **args) -> Any:
+        def func(target_obj=None,
+                 model_name: str = model_name_, options=None,
+                 **args) -> Any:
+            if options is None:
+                options = options_
             return _generate(petal, model_name, options, target_obj, args)
 
         return func
 
-    def get_function_bind(self, function_name: str) -> Callable:
+    def get_function_bind(self, function_name: str,
+                          model_name_: str = None, options_: Dict[str, Any] = None) -> Callable:
         petal = self.namespace.get_by_indicator(full_name_to_indicator(function_name))
 
-        def func(self_, target_obj=None, model_name: str = None, options: Dict[str, Any] = None, **args) -> Any:
+        def func(self_, target_obj=None,
+                 model_name: str = model_name_, options=None,
+                 **args) -> Any:
+            if options is None:
+                options = options_
             args['self'] = self_
-            if target_obj is None:
-                target_obj = self_
 
             return _generate(petal, model_name, options, target_obj, args)
 
         return func
 
-    def get_function_stream(self, function_name: str) -> Callable:
+    def get_function_stream(self, function_name: str,
+                            model_name_: str = None, options_: Dict[str, Any] = None) -> Callable:
         petal = self.namespace.get_by_indicator(full_name_to_indicator(function_name))
 
-        def func(target_obj=None, model_name: str = None, options: Dict[str, Any] = None, **args) -> (
+        def func(target_obj=None, model_name: str = model_name_,
+                 options=None,
+                 **args) -> (
                 Generator[Any, None, None]):
+            if options is None:
+                options = options_
             for data in _generate_stream(petal, model_name, options, target_obj, args):
                 yield data
 
         return func
 
-    def get_function_stream_bind(self, function_name: str) -> Callable:
+    def get_function_stream_bind(self, function_name: str,
+                                 model_name_: str = None, options_: Dict[str, Any] = None) -> Callable:
         petal = self.namespace.get_by_indicator(full_name_to_indicator(function_name))
 
-        def func(self_, target_obj=None, model_name: str = None, options: Dict[str, Any] = None, **args) -> (
+        def func(self_, target_obj=None,
+                 model_name: str = model_name_, options=None,
+                 **args) -> (
                 Generator[Any, None, None]):
+            if options is None:
+                options = options_
             args['self'] = self_
-            if target_obj is None:
-                target_obj = self_
 
             for data in _generate_stream(petal, model_name, options, target_obj, args):
                 yield data
@@ -123,6 +139,34 @@ def build(src_path: str) -> Rosemary:
     return Rosemary(src_path)
 
 
+_rosemary_instances = {}
+
+
+def load(name: str, src_path: str):
+    if src_path not in _rosemary_instances:
+        _rosemary_instances[name] = build(src_path)
+
+
+def get_function(name: str, function_name: str,
+                 model_name: str = None, options: Dict[str, Any] = None) -> Callable:
+    return _rosemary_instances[name].get_function(function_name, model_name, options)
+
+
+def get_function_bind(name: str, function_name: str,
+                      model_name: str = None, options: Dict[str, Any] = None) -> Callable:
+    return _rosemary_instances[name].get_function_bind(function_name, model_name, options)
+
+
+def get_function_stream(name: str, function_name: str,
+                        model_name: str = None, options: Dict[str, Any] = None) -> Callable:
+    return _rosemary_instances[name].get_function_stream(function_name, model_name, options)
+
+
+def get_function_stream_bind(name: str, function_name: str,
+                             model_name: str = None, options: Dict[str, Any] = None) -> Callable:
+    return _rosemary_instances[name].get_function_stream_bind(function_name, model_name, options)
+
+
 def _format(petal: RosemaryPetal, data: Dict[str, Any]) -> Any:
     if petal.formatter_rml is None:
         return data
@@ -130,7 +174,7 @@ def _format(petal: RosemaryPetal, data: Dict[str, Any]) -> Any:
     if petal.variable_names:
         data = {name: None for name in petal.variable_names} | data
 
-    env = _build_environment(petal, data.copy())
+    env = build_environment(petal, data.copy())
     executor = FormatExecutor()
 
     succeed = traverse_all([env], petal.formatter_rml.children, executor)
@@ -151,11 +195,9 @@ def _parse(petal: RosemaryPetal, data: Dict[str, Any], raw_str: str, target_obj=
     if petal.target:
         data = data | {petal.target: target_obj if target_obj is not None else eval(petal.init)}
 
-    env = _build_environment(petal, data)
-    executor = ParseExecutor(raw_str)
+    env = build_environment(petal, data)
+    executor = ParseExecutor(raw_str, petal.target, target_obj)
 
     succeed = traverse_all([env], petal.parser_rml.children, executor)
 
-    executor.activate_assignments(succeed)
-
-    return data.get(petal.target), succeed
+    return executor.activate_assignments(succeed), succeed
