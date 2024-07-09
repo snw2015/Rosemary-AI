@@ -12,6 +12,14 @@ You are a good fit for Rosemary if you:
 - Are annoyed by the boilerplate code in your AI project and want to find a way to simplify it.
 - Want to introduce your system and prompts to others who are not familiar with AI, and even invite them to participate in the system.
 
+## Key Features
+- **Templates** - Rosemary use its unique template language to define the interaction, including the input formatting and output processing in a more declarative way. You can even write 'Template for templates' to save more of your time!
+- **Configurable** - The configuration you can use on the AI model is just the same as you can use on the provider's official API.
+- **Extensible** - The end-point provider you like has not been supported by Rosemary? You can easily add the new API by yourself, even if it is a local model!
+- **Modular** - Manage all your templates in separate files, and use namespaces to keep them organized.
+- **Streaming** - Streaming support for building real-time applications.
+- **Multi-modal** - Multi-modal support, including text, image, and more.
+
 ## Quick Start
 ### Installation
 First, install Rosemary via pip:
@@ -92,12 +100,12 @@ You can find more syntax, examples and the API reference on the [official wiki](
 ## Model support
 Rosemary currently supports the following AI models (more models will be added soon!):
 
-| Provider | Model | In Package Model Name |
-|----------|-------|-----------------------|
-| OpenAI   | GPT-3.5 Turbo | gpt-3.5-t |
-| OpenAI   | GPT-4 Turbo | gpt-4-t |
-| OpenAI   | GPT-4o | gpt-4o |
-| OpenAI   | DALL-E 3 | dall-e-3 |
+| Provider | Model         | In Package Model Name |
+|----------|---------------|-----------------------|
+| OpenAI   | GPT-3.5 Turbo | gpt-3.5-t             |
+| OpenAI   | GPT-4 Turbo   | gpt-4-t               |
+| OpenAI   | GPT-4o        | gpt-4o                |
+| OpenAI   | DALL-E 3      | dall-e-3              |
 
 ## Roadmap
 Rosemary is still in the early stage of development. We are looking forward to adding more features and improving the usability of the system. Here are some of the features we are planning to add in the future:
