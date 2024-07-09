@@ -168,9 +168,7 @@ def traverse(env_stack: List[Environment], element: RmlElement, executor: Execut
                         return False
                 return True
 
-            else:
-                if 'range' not in element.attributes:
-                    raise ValueError('For must have a range')
+            elif 'range' in element.attributes:
                 loop_range: range = _eval('range(' + element.attributes['range'] + ')', curr_env.context)
                 assert isinstance(loop_range, range)
 
@@ -203,38 +201,39 @@ def traverse(env_stack: List[Environment], element: RmlElement, executor: Execut
 
                 return True
 
-        elif element.indicator == ('foreach',):
-            if 'in' not in element.attributes:
-                raise ValueError('For-each must have a target')
-            loop_list = _eval(element.attributes['in'], curr_env.context)
+            elif 'in' in element.attributes:
+                loop_list = _eval(element.attributes['in'], curr_env.context)
 
-            end_if_failed = False
-            if 'try' in element.attributes:
-                end_if_failed = _eval(element.attributes['try'], curr_env.context)
+                end_if_failed = False
+                if 'try' in element.attributes:
+                    end_if_failed = _eval(element.attributes['try'], curr_env.context)
 
-            slot_name = None
-            if 'var' in element.attributes:
-                slot_name = element.attributes['var']
+                slot_name = None
+                if 'var' in element.attributes:
+                    slot_name = element.attributes['var']
 
-            if slot_name:  # loop variable only exists in the loop
-                env_stack += [copy(curr_env)]
+                if slot_name:  # loop variable only exists in the loop
+                    env_stack += [copy(curr_env)]
 
-            loop_env = env_stack[-1]
-            for obj in loop_list:
-                snapshot = executor.get_snapshot()
+                loop_env = env_stack[-1]
+                for obj in loop_list:
+                    snapshot = executor.get_snapshot()
+                    if slot_name:
+                        loop_env.context[slot_name] = obj
+                    succeed = traverse_all(env_stack, element.children, executor)
+                    if not succeed:
+                        if end_if_failed:
+                            executor.set_snapshot(snapshot)
+                            break
+                        else:
+                            return False
                 if slot_name:
-                    loop_env.context[slot_name] = obj
-                succeed = traverse_all(env_stack, element.children, executor)
-                if not succeed:
-                    if end_if_failed:
-                        executor.set_snapshot(snapshot)
-                        break
-                    else:
-                        return False
-            if slot_name:
-                env_stack.pop()
+                    env_stack.pop()
 
-            return True
+                return True
+
+            else:
+                raise ValueError('For must have a range or an iterable')
 
         elif element.indicator == ('optional',):
             has_or = False
