@@ -1,4 +1,5 @@
 # Rosemary: A Template Engine for Generative AIs
+![image](logo.jpg)
 Rosemary is a template engine and prompt executor designed especially for generative AIs including chat completions, image generations and more.
 
 The core concept of Rosemary is to treat the interaction with AIs as some functions. By encapsulating the data handling and AI model execution, you can then build any system you want just like building any other software system.
