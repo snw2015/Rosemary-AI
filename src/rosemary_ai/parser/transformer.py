@@ -59,9 +59,9 @@ def cleandoc(items: List[TextToken]):
         cleaned += [items.pop()]
     if not items:
         return cleaned
-    leading_ws, last_line = calc_leading_ws_and_remove_leading(items.pop().text)
-    if last_line:
-        cleaned += [TextToken(TextToken.TYPE.PLAIN_TEXT, last_line)]
+    leading_ws, non_empty_part = calc_leading_ws_and_remove_leading(items.pop().text)
+    if non_empty_part:
+        cleaned += [TextToken(TextToken.TYPE.PLAIN_TEXT, non_empty_part)]
 
     for item in reversed(items):
         if item.type == TextToken.TYPE.INDICATOR:

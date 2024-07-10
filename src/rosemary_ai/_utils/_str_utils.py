@@ -29,7 +29,7 @@ def clean_leading_ws_lines(text: str, to_clean: int) -> str:
         return text
     lines = text.splitlines()
     cleaned_lines = []
-    if lines and lines[0].strip():
+    if lines:
         cleaned_lines += [lines[0]]
         lines = lines[1:]
     for line in lines:
