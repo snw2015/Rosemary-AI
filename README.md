@@ -100,7 +100,7 @@ You can find more syntax, examples and the API reference on the [official wiki](
 ## Model support
 Rosemary currently supports the following AI models (more models will be added soon!):
 
-| Provider | Model         | In Package Model Name |
+| Provider | Model         | In-package Model Name |
 |----------|---------------|-----------------------|
 | OpenAI   | GPT-3.5 Turbo | gpt-3.5-t             |
 | OpenAI   | GPT-4 Turbo   | gpt-4-t               |
