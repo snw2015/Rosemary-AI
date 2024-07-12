@@ -2,7 +2,7 @@
 <import path="_gpt.rml"/>
 
 <corolla name="gpt">
-    <template name="chat" var="max_tokens, temperature" slot="message(role)">
+    <template name="chat" var="max_tokens, temperature" slot="message(role), system">
         <dict>
             <dict-item key="messages">
                 <list>

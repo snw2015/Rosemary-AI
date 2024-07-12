@@ -1,43 +1,11 @@
 from typing import Generator, Dict, Any, List
 
+from ._utils import _shape_messages
 from .._utils._image import _image_to_data_uri  # noqa
 from .generator import AbstractContentGenerator
 from openai import OpenAI, NOT_GIVEN
 
-from ..multi_modal.image import Image
-
-
-def _shape_messages(data: List[Dict[str, str | List[str | Image]]]) -> List[Dict[str, str]]:
-    messages = []
-
-    for d in data:
-        for role, content in d.items():
-            if isinstance(content, str):
-                messages.append({'role': role, 'content': content})
-            if isinstance(content, List):
-                content_arr = _glue_str(content)
-                if len(content_arr) == 1 and content_arr[0]['type'] == 'text':
-                    messages.append({'role': role, 'content': content_arr[0]['text']})
-                else:
-                    messages.append({'role': role, 'content': content_arr})
-
-    return messages
-
-
-def _glue_str(content: List[str | Image]) -> List[Dict[str, str]]:
-    content_arr = []
-    for c in content:
-        if isinstance(c, str):
-            if content_arr and content_arr[-1]['type'] == 'text':
-                content_arr[-1]['text'] += c
-            else:
-                content_arr.append({'type': 'text', 'text': c})
-        elif isinstance(c, Image):
-            c: Image
-            url = _image_to_data_uri(c)
-            content_arr.append({'type': 'image_url', 'image_url':
-                {'url': url}})
-    return content_arr
+from .._logger import LOGGER
 
 
 class GPTChatGenerator(AbstractContentGenerator):
@@ -46,6 +14,8 @@ class GPTChatGenerator(AbstractContentGenerator):
 
     def generate(self, data: Dict[str, str | List[Dict[str, str | List]]], options: Dict[str, Any]) -> str:
         messages = _shape_messages(data['messages'])
+
+        LOGGER.info(f'Sending messages to {self.model_name}: "{messages}".')
 
         api_key = options.get('api_key')
         temperature = options.get('temperature', NOT_GIVEN)
@@ -56,13 +26,17 @@ class GPTChatGenerator(AbstractContentGenerator):
             model=self.model_name, messages=messages,
             temperature=temperature, max_tokens=max_tokens)  # type: ignore
 
-        response = completion.choices[0].message.content
+        LOGGER.info(f'Received response from {self.model_name}: "{completion.choices[0].message}".')
 
-        return response
+        result = completion.choices[0].message.content
+
+        return result
 
     def generate_stream(self, data: Dict[str, str | List[Dict[str, str | List]]], options: Dict[str, Any]) -> Generator[
             str, None, None]:
         messages = _shape_messages(data['messages'])
+
+        LOGGER.info(f'Sending messages to {self.model_name}: "{messages}".')
 
         api_key = options.get('api_key')
         temperature = options.get('temperature', NOT_GIVEN)
@@ -73,13 +47,16 @@ class GPTChatGenerator(AbstractContentGenerator):
                                                            temperature=temperature, max_tokens=max_tokens,
                                                            stream=True)  # type: ignore
 
-        response = ''
+        result = ''
 
         for chunk in completion_stream:
+            LOGGER.info(f'Received response (streaming) from {self.model_name}: "{chunk.choices[0].delta}".')
+
             delta = chunk.choices[0].delta.content
             if delta is not None:
-                response += delta
-                yield response
+                result += delta
+                yield result
+
 
 
 class GPTImageGenerator(AbstractContentGenerator):
@@ -91,6 +68,8 @@ class GPTImageGenerator(AbstractContentGenerator):
         if isinstance(prompt, list):
             prompt = ' '.join(prompt)
 
+        LOGGER.info(f'Sending prompt to {self.model_name}: "{prompt}".')
+
         api_key = options.get('api_key')
         quality = options.get('quality', NOT_GIVEN)
         size = options.get('size', NOT_GIVEN)
@@ -101,9 +80,11 @@ class GPTImageGenerator(AbstractContentGenerator):
             model=self.model_name, prompt=prompt,
             quality=quality, size=size, style=style)  # type: ignore
 
-        response = image.data[0].url
+        LOGGER.info(f'Received response from {self.model_name}: "{image.data}".')
 
-        return response
+        result = image.data[0].url
+
+        return result
 
     def generate_stream(self, data: Dict[str, str | List[Dict[str, str | List]]], options: Dict[str, Any]) -> Generator[
             str, None, None]:

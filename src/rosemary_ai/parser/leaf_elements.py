@@ -3,6 +3,7 @@ from typing import List, Dict, TypeAlias, Union, Tuple, Set
 from .data_expression import DataExpression, VariableContext
 from .namespace import Namespace
 from .transformer import RmlElement
+from ..exceptions import RmlFormatException
 
 LeafElement: TypeAlias = Union['RosemaryPetal', 'RosemaryTemplate']
 RosemaryNamespace: TypeAlias = Namespace[LeafElement]
@@ -142,7 +143,7 @@ def rml_to_template(tree: RmlElement, namespace: RosemaryNamespace) -> RosemaryT
     if 'var' in tree.attributes:
         variables = list(map(str.strip, tree.attributes['var'].split(',')))
 
-    slot_vars = []
+    slot_vars = {}
     if 'slot' in tree.attributes:
         slot_vars = _get_slot_var(tree.attributes['slot'])
 

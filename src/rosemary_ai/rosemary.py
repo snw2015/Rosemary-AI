@@ -1,5 +1,6 @@
 from typing import Callable, Dict, Any, Tuple, Generator
 
+from .exceptions import ParsingFailedException
 from .models.generator_registry import get_generator
 from .parser.executor import FormatExecutor, ParseExecutor
 from .parser.leaf_elements import RosemaryPetal, build_environment
@@ -26,7 +27,7 @@ def _generate(petal: RosemaryPetal, model_name: str, options: Dict[str, Any],
     if succeed:
         return target_obj
     else:
-        raise ValueError(f'Failed to parse {raw_str}')
+        raise ParsingFailedException(f'Failed to parse from the model response: {raw_str}.')
 
 
 def _generate_stream(petal: RosemaryPetal, model_name: str, options: Dict[str, Any],
@@ -47,7 +48,7 @@ def _generate_stream(petal: RosemaryPetal, model_name: str, options: Dict[str, A
         yield target_obj
 
     if not succeed:
-        raise ValueError(f'Failed to parse {raw_str}')
+        raise ParsingFailedException(f'Failed to parse from the model response: {raw_str}')
 
 
 class Rosemary:
@@ -59,8 +60,10 @@ class Rosemary:
         self.namespace: Namespace = rosemary_parser.namespace
 
     def get_function(self, function_name: str,
-                     model_name_: str = None, options_: Dict[str, Any] = None) -> Callable:
+                     model_name: str = None, options: Dict[str, Any] = None) -> Callable:
         petal = self.namespace.get_by_indicator(full_name_to_indicator(function_name))
+        model_name_ = model_name
+        options_ = options
 
         def func(target_obj=None,
                  model_name: str = model_name_, options=None,
@@ -72,8 +75,10 @@ class Rosemary:
         return func
 
     def get_function_bind(self, function_name: str,
-                          model_name_: str = None, options_: Dict[str, Any] = None) -> Callable:
+                          model_name: str = None, options: Dict[str, Any] = None) -> Callable:
         petal = self.namespace.get_by_indicator(full_name_to_indicator(function_name))
+        model_name_ = model_name
+        options_ = options
 
         def func(self_, target_obj=None,
                  model_name: str = model_name_, options=None,
@@ -87,8 +92,10 @@ class Rosemary:
         return func
 
     def get_function_stream(self, function_name: str,
-                            model_name_: str = None, options_: Dict[str, Any] = None) -> Callable:
+                            model_name: str = None, options: Dict[str, Any] = None) -> Callable:
         petal = self.namespace.get_by_indicator(full_name_to_indicator(function_name))
+        model_name_ = model_name
+        options_ = options
 
         def func(target_obj=None, model_name: str = model_name_,
                  options=None,
@@ -102,8 +109,10 @@ class Rosemary:
         return func
 
     def get_function_stream_bind(self, function_name: str,
-                                 model_name_: str = None, options_: Dict[str, Any] = None) -> Callable:
+                                 model_name: str = None, options: Dict[str, Any] = None) -> Callable:
         petal = self.namespace.get_by_indicator(full_name_to_indicator(function_name))
+        model_name_ = model_name
+        options_ = options
 
         def func(self_, target_obj=None,
                  model_name: str = model_name_, options=None,

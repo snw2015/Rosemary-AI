@@ -1,6 +1,7 @@
 from copy import copy
 from typing import List, Iterable
 
+from ..exceptions import RmlFormatException
 from ..multi_modal.image import Image
 from .data_expression import DataExpression
 from .executor import Executor
@@ -19,49 +20,70 @@ def traverse_all(env_stack: List[Environment], children: List[RmlElement], execu
     return True
 
 
+def _get_range_from_str(range_str: str, env: Environment):
+    try:
+        loop_range: range = _eval('range(' + range_str + ')', env.context)
+        assert isinstance(loop_range, range)
+        return loop_range
+    except Exception:
+        raise RmlFormatException(f'"range" is not a valid range expression: {range_str}.')
+
+
 def _find_and_add_slot(element: RmlElement, new_slots: dict[str, Slot],
                        env: Environment):
-    assert len(element.indicator) == 1
+    if len(element.indicator) != 1:
+        raise RmlFormatException(f'Unexpected tag when generating slots: {".".join(element.indicator)}')
 
     indicator = element.indicator[0]
     if indicator == 'if':
-        assert 'cond' in element.attributes
+        if 'cond' not in element.attributes:
+            raise RmlFormatException('If must have a condition, given by "cond" attribute.')
+
         if env.eval(element.attributes['cond']):
             for child in element.children:
                 _find_and_add_slot(child, new_slots, env)
     elif indicator == 'for':
-        assert 'range' in element.attributes
-        loop_range = env.eval('range(' + element.attributes['range'] + ')')
-        assert isinstance(loop_range, range)
+        if 'range' in element.attributes:
+            range_str = element.attributes['range']
+            loop_range = _get_range_from_str(range_str, env)
 
-        var_name = None
-        has_var = 'var' in element.attributes
-        if has_var:
-            var_name = element.attributes['var']
-
-        for i in loop_range:
-            new_env = copy(env)
+            var_name = None
+            has_var = 'var' in element.attributes
             if has_var:
-                new_env.context[var_name] = i
-            for child in element.children:
-                _find_and_add_slot(child, new_slots, new_env)
+                var_name = element.attributes['var']
+                if not var_name:
+                    raise RmlFormatException('Loop variable name must not be empty.')
 
-    elif indicator == 'foreach':
-        assert 'in' in element.attributes
-        loop_list = env.eval(element.attributes['in'])
-        assert isinstance(loop_list, Iterable)
+            for i in loop_range:
+                new_env = copy(env)
+                if has_var:
+                    new_env.context[var_name] = i
+                for child in element.children:
+                    _find_and_add_slot(child, new_slots, new_env)
 
-        var_name = None
-        has_var = 'var' in element.attributes
-        if has_var:
-            var_name = element.attributes['var']
+        elif 'in' in element.attributes:
+            loop_list = env.eval(element.attributes['in'])
+            if not isinstance(loop_list, Iterable):
+                raise RmlFormatException('"in" must be an iterable object.')
 
-        for obj in loop_list:
-            new_env = copy(env)
+            var_name = None
+            has_var = 'var' in element.attributes
             if has_var:
-                new_env.context[var_name] = obj
-            for child in element.children:
-                _find_and_add_slot(child, new_slots, new_env)
+                var_name = element.attributes['var']
+                if not var_name:
+                    raise RmlFormatException('Loop variable name must not be empty.')
+
+            for obj in loop_list:
+                new_env = copy(env)
+                if has_var:
+                    new_env.context[var_name] = obj
+                for child in element.children:
+                    _find_and_add_slot(child, new_slots, new_env)
+        else:
+            raise RmlFormatException(
+                'For must have a range or an iterable object,'
+                ' given by "range" or "in" attribute.'
+            )
 
     elif indicator in new_slots:
         slot = new_slots[indicator]
@@ -70,14 +92,15 @@ def _find_and_add_slot(element: RmlElement, new_slots: dict[str, Slot],
             if var_name in element.attributes:
                 var_context[var_name] = env.eval(element.attributes[var_name])
             else:
-                raise ValueError(f"Variable '{var_name}' not found in the slot.")
+                raise RmlFormatException(f'Slot {indicator} lacks variable {var_name}.')
         slot.append(element, env, var_context)
 
     else:
-        raise ValueError(f"Slot '{indicator}' not found.")
+        raise RmlFormatException(f'Slot not found: {indicator}')
 
 
 def traverse(env_stack: List[Environment], element: RmlElement, executor: Executor) -> bool:
+    assert env_stack
     curr_env = env_stack[-1]
 
     if element.is_text:
@@ -111,6 +134,9 @@ def traverse(env_stack: List[Environment], element: RmlElement, executor: Execut
 
             return succeed
         elif element.indicator == ('dict-item',):
+            if 'key' not in element.attributes and 'key_eval' not in element.attributes:
+                raise RmlFormatException('Dict item must have a key, given by "key" or "key_eval" attribute.')
+
             key = None
             if 'key' in element.attributes:
                 key = element.attributes['key']
@@ -122,13 +148,15 @@ def traverse(env_stack: List[Environment], element: RmlElement, executor: Execut
             executor.end_scope('dict_item', succeed)
 
             return succeed
-        elif element.indicator == ('p',):
-            succeed = traverse_all(env_stack, element.children, executor)
+        elif element.indicator == ('br',):
+            if element.children:
+                raise RmlFormatException('br element cannot have children.')
             executor.execute('\n', curr_env.context)
-            return succeed
+
+            return True
         elif element.indicator == ('img',):
             if 'src' not in element.attributes and 'src_eval' not in element.attributes:
-                raise ValueError('Image must have a source')
+                raise RmlFormatException('Image must have a source, given by "src" or "src_eval" attribute.')
 
             src = None
             if 'src' in element.attributes:
@@ -140,7 +168,7 @@ def traverse(env_stack: List[Environment], element: RmlElement, executor: Execut
             return True
         elif element.indicator == ('if',):
             if 'cond' not in element.attributes:
-                raise ValueError('If must have a condition')
+                raise RmlFormatException('If must have a condition, given by "cond" attribute.')
             if _eval(element.attributes['cond'], curr_env.context):
                 return traverse_all(env_stack, element.children, executor)
         elif element.indicator == ('for',):
@@ -149,7 +177,7 @@ def traverse(env_stack: List[Environment], element: RmlElement, executor: Execut
                 slot = curr_env.slots[slot_name]
 
                 if slot.is_inf:
-                    raise ValueError('Infinite slot is not allowed in for expansion')
+                    raise RmlFormatException('Infinite slot is not allowed in for expansion.')
 
                 while slot.has_next():
                     new_env = copy(curr_env)
@@ -169,71 +197,80 @@ def traverse(env_stack: List[Environment], element: RmlElement, executor: Execut
                 return True
 
             elif 'range' in element.attributes:
-                loop_range: range = _eval('range(' + element.attributes['range'] + ')', curr_env.context)
-                assert isinstance(loop_range, range)
+                range_str = element.attributes['range']
+                loop_range = _get_range_from_str(range_str, curr_env)
 
                 end_if_failed = False
                 if 'try' in element.attributes:
-                    end_if_failed = _eval(element.attributes['try'], curr_env.context)
+                    end_if_failed = DataExpression(element.attributes['try']).evaluate(curr_env.context)
 
-                slot_name = None
+                var_name = None
                 if 'var' in element.attributes:
-                    slot_name = element.attributes['var']
+                    var_name = element.attributes['var']
+                    if not var_name:
+                        raise RmlFormatException('Loop variable name must not be empty.')
 
-                if slot_name:  # loop variable only exists in the loop
+                if var_name:  # loop variable only exists in the loop
                     env_stack += [copy(curr_env)]
 
                 loop_env = env_stack[-1]
                 for i in loop_range:
                     snapshot = executor.get_snapshot()
-                    if slot_name:
-                        loop_env.context[slot_name] = i
+                    if var_name:
+                        loop_env.context[var_name] = i
                     succeed = traverse_all(env_stack, element.children, executor)
                     if not succeed:
                         if end_if_failed:
-                            executor.set_snapshot(snapshot)
+                            executor.back_to_snapshot(snapshot)
                             break
                         else:
                             return False
 
-                if slot_name:
+                if var_name:
                     env_stack.pop()
 
                 return True
 
             elif 'in' in element.attributes:
-                loop_list = _eval(element.attributes['in'], curr_env.context)
+                loop_list = DataExpression(element.attributes['in']).evaluate(curr_env.context)
+                if not isinstance(loop_list, Iterable):
+                    raise RmlFormatException('Loop list must be iterable.')
 
                 end_if_failed = False
                 if 'try' in element.attributes:
-                    end_if_failed = _eval(element.attributes['try'], curr_env.context)
+                    end_if_failed = DataExpression(element.attributes['try']).evaluate(curr_env.context)
 
-                slot_name = None
+                var_name = None
                 if 'var' in element.attributes:
-                    slot_name = element.attributes['var']
+                    var_name = element.attributes['var']
+                    if not var_name:
+                        raise RmlFormatException('Loop variable name must not be empty.')
 
-                if slot_name:  # loop variable only exists in the loop
+                if var_name:  # loop variable only exists in the loop
                     env_stack += [copy(curr_env)]
 
                 loop_env = env_stack[-1]
                 for obj in loop_list:
                     snapshot = executor.get_snapshot()
-                    if slot_name:
-                        loop_env.context[slot_name] = obj
+                    if var_name:
+                        loop_env.context[var_name] = obj
                     succeed = traverse_all(env_stack, element.children, executor)
                     if not succeed:
                         if end_if_failed:
-                            executor.set_snapshot(snapshot)
+                            executor.back_to_snapshot(snapshot)
                             break
                         else:
                             return False
-                if slot_name:
+                if var_name:
                     env_stack.pop()
 
                 return True
 
             else:
-                raise ValueError('For must have a range or an iterable')
+                raise RmlFormatException(
+                    'For must have a slot, a range or an iterable object,'
+                    ' given by "slot", "range" or "in" attribute.'
+                )
 
         elif element.indicator == ('optional',):
             has_or = False
@@ -246,31 +283,34 @@ def traverse(env_stack: List[Environment], element: RmlElement, executor: Execut
                 succeed = traverse_all(env_stack, element.children, executor)
                 if succeed:
                     return True
-                executor.set_snapshot(snapshot)
+                executor.back_to_snapshot(snapshot)
             else:  # choose first successful branch
                 for child in element.children:
-                    if child.is_text:
-                        continue
+                    if child.indicator != ('or',):
+                        raise RmlFormatException('Only "or" elements are allowed in an "optional" element.')
+
                     snapshot = executor.get_snapshot()
-                    assert child.indicator == ('or',)
+
                     succeed = traverse_all(env_stack, child.children, executor)
                     if succeed:
                         return True
-                    executor.set_snapshot(snapshot)
+                    executor.back_to_snapshot(snapshot)
 
             required = ('required' in element.attributes and
-                        _eval(element.attributes['required'], curr_env.context))
+                        DataExpression(element.attributes['required']).evaluate(curr_env.context))
             return not required
         else:
             # slots
             if len(element.indicator) == 1 and curr_env.slots:
                 indicator = element.indicator[0]
                 if indicator in curr_env.slots:
-                    assert not element.children
+                    if element.children:
+                        raise RmlFormatException('Slot element used in a template cannot have children.')
 
                     slot = curr_env.slots[indicator]
                     if not slot.has_next():
-                        return False
+                        raise RmlFormatException(f'Elements found for slot "{indicator}" is not enough.')
+
                     slot_element, slot_env, _ = curr_env.slots[indicator].pop()
 
                     env_stack.append(slot_env)
@@ -281,14 +321,21 @@ def traverse(env_stack: List[Environment], element: RmlElement, executor: Execut
 
             # templates
             indicator = element.indicator
-            template: RosemaryTemplate = curr_env.namespace.get_by_indicator(indicator)
-            assert isinstance(template, RosemaryTemplate)
+            try:
+                template: RosemaryTemplate = curr_env.namespace.get_by_indicator(indicator)
+            except Exception:
+                raise RmlFormatException(f'Unknown tag: {indicator}.')
+
+            if not isinstance(template, RosemaryTemplate):
+                raise RmlFormatException(
+                    f'The given tag name cannot be interpreted as a template or slot: {indicator}.'
+                )
 
             new_namespace = template.namespace
             context = {name: None for name in template.variable_names}
-            for slot_name in template.variable_names:
-                if slot_name in element.attributes:
-                    context[slot_name] = _eval(element.attributes[slot_name], curr_env.context)
+            for var_name in template.variable_names:
+                if var_name in element.attributes:
+                    context[var_name] = _eval(element.attributes[var_name], curr_env.context)
 
             slot_vars = template.slot_vars
             new_slots = {}
@@ -299,7 +346,7 @@ def traverse(env_stack: List[Environment], element: RmlElement, executor: Execut
                 is_inf = True
                 new_slots[slot_name] = Slot([(element, curr_env, {})], slot_var, is_inf)
             else:
-                for slot_name in slot_vars:
+                for slot_name in slot_vars.keys():
                     is_inf = False
                     slot_var = slot_vars[slot_name]
                     if slot_name.startswith('*'):
@@ -308,11 +355,6 @@ def traverse(env_stack: List[Environment], element: RmlElement, executor: Execut
                     new_slots[slot_name] = Slot([], slot_var, is_inf)
                 for child in element.children:
                     _find_and_add_slot(child, new_slots, curr_env)
-
-            # make this one the default slot
-            # if not slot_found and len(new_slots) == 1:
-            #     slot_name = list(new_slots.keys())[0]
-            #     new_slots[slot_name] = [element]
 
             for slot_element in new_slots.values():
                 slot_element.reverse()
