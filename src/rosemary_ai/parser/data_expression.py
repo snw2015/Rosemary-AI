@@ -1,5 +1,7 @@
 from typing import TypeAlias, Dict, Any
 
+from ..exceptions import ExecutionException
+
 VariableContext: TypeAlias = Dict[str, Any]
 
 
@@ -11,18 +13,24 @@ class DataExpression:
         return self._value
 
     def evaluate(self, context: VariableContext, need_copy=True):
-        # The eval function is destructive.
+        # The eval function is destructive to the context dict.
         # For time complexity issues, the caller should decide when to not copy the context.
-        if need_copy:
-            return eval(self._value, context.copy())
-        else:
-            return eval(self._value, context)
+        try:
+            if need_copy:
+                return eval(self._value, context.copy())
+            else:
+                return eval(self._value, context)
+        except Exception as e:
+            raise ExecutionException(f'Failed to evaluate Python code "{self._value}": {e}.')
 
     def execute(self, context: VariableContext, need_copy=True):
-        if need_copy:
-            exec(self._value, context.copy())
-        else:
-            exec(self._value, context)
+        try:
+            if need_copy:
+                exec(self._value, context.copy())
+            else:
+                exec(self._value, context)
+        except Exception as e:
+            raise ExecutionException(f'Failed to execute Python code "{self._value}": {e}.')
 
     def __str__(self):
         return f'DataExpression<{self._value}>'

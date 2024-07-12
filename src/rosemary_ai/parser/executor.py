@@ -1,6 +1,7 @@
 from abc import ABCMeta, abstractmethod
 from typing import TypeAlias, Dict, Any, List, Tuple
 
+from ..exceptions import RmlFormatException
 from ..multi_modal.image import Image
 from .data_expression import DataExpression
 from .leaf_elements import VariableContext
@@ -21,7 +22,7 @@ class Executor(metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def set_snapshot(self, state: Any):
+    def back_to_snapshot(self, state: Any):
         pass
 
     @abstractmethod
@@ -52,7 +53,7 @@ class FormatExecutor(Executor):
     def get_snapshot(self) -> Any:
         pass
 
-    def set_snapshot(self, state: Any):
+    def back_to_snapshot(self, state: Any):
         pass
 
     def begin_scope(self, scope_type: str, key=None):
@@ -63,11 +64,15 @@ class FormatExecutor(Executor):
             assert self.scope_stack[-1] is None
             self.scope_stack[-1] = {}
         elif scope_type == 'list_item':
-            assert self.scope_stack[-1] is not None
+            if self.scope_stack[-1] is None or not isinstance(self.scope_stack[-1], list):
+                raise RmlFormatException('"list-item" must be put directly under a "list".')
             self.scope_stack.append(None)
         elif scope_type == 'dict_item':
-            assert self.scope_stack[-1] is not None
-            assert key is not None
+            if self.scope_stack[-1] is None or not isinstance(self.scope_stack[-1], dict):
+                raise RmlFormatException('"dict-item" must be put directly under a "dict".')
+            if key is None:
+                raise RmlFormatException('"dict-item" must have a key which is not None.')
+
             self.key_stack.append(key)
             self.scope_stack.append(None)
         else:
@@ -129,7 +134,7 @@ class ParseExecutor(Executor):
 
         return self.raw_str, self.last_target_repr_with_var, self.assign_with_var_list.copy()
 
-    def set_snapshot(self, state: Tuple[str, Tuple[DataExpression, VariableContext] | None,
+    def back_to_snapshot(self, state: Tuple[str, Tuple[DataExpression, VariableContext] | None,
                                         List[Tuple[DataExpression, VariableContext]]]):
 
         self.raw_str, self.last_target_repr_with_var, self.assign_with_var_list = state
@@ -147,7 +152,9 @@ class ParseExecutor(Executor):
         for assign, env in self.assign_with_var_list:
             if self.target:
                 env[self.target] = result
+
             assign.execute(env, False)
+
             if self.target:
                 result = env.get(self.target)
 

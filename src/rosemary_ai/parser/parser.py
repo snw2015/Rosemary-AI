@@ -6,6 +6,7 @@ from .._utils._file_utils import read_and_close_file_to_root, read_and_close_fil
 from .namespace import Namespace
 from .leaf_elements import rml_to_petal, rml_to_template, RosemaryNamespace
 from .transformer import RmlElement, TreeToRmlTreeTransformer
+from ..exceptions import RmlSyntaxException
 
 GRAMMAR_PATH = "parser/rosemary.lark"
 RML_COMMON_PATH = "rml_common/common.rml"
@@ -18,6 +19,7 @@ class RosemaryParser:
         self.transformer = TreeToRmlTreeTransformer()
 
         self.imported_namespaces = {}
+        self.src_path = src_path
 
         if src_path == 'common':
             rml_tree = self._src_to_rml_tree(read_and_close_file_to_root(RML_COMMON_PATH))
@@ -25,6 +27,7 @@ class RosemaryParser:
         else:
             rml_tree = self._src_to_rml_tree(read_and_close_file(src_path))
             self.path_stack = [Path(src_path).resolve()]
+
         self.namespace = self._rml_tree_to_namespace(rml_tree)
 
     def _rml_tree_to_namespace(self, tree: RmlElement, parent_namespace: RosemaryNamespace = None) -> RosemaryNamespace:
@@ -34,23 +37,30 @@ class RosemaryParser:
                 continue
             elif child.indicator == ('import',):
                 if 'path' not in child.attributes or not child.attributes['path']:
-                    raise ValueError('Import must have a path')
+                    raise RmlSyntaxException('Import must have a path', self.src_path)
                 for name, element in self._parse_file(child.attributes['path']).items():
                     namespace.append(name, element)
             elif child.indicator == ('corolla',):
                 if 'name' not in child.attributes or not child.attributes['name']:
-                    raise ValueError('Corolla must have a name')
+                    raise RmlSyntaxException('Corolla must have a name', self.src_path)
                 namespace.append(child.attributes['name'], self._rml_tree_to_namespace(child, namespace))
             elif child.indicator == ('petal',):
                 if 'name' not in child.attributes or not child.attributes['name']:
-                    raise ValueError('Petal must have a name')
-                namespace.append(child.attributes['name'], rml_to_petal(child, namespace))
+                    raise RmlSyntaxException('Petal must have a name', self.src_path)
+
+                try:
+                    namespace.append(child.attributes['name'], rml_to_petal(child, namespace))
+                except Exception as e:
+                    raise RmlSyntaxException('Failed to parse petal', self.src_path) from e
             elif child.indicator == ('template',):
                 if 'name' not in child.attributes or not child.attributes['name']:
-                    raise ValueError('Template must have a name')
-                namespace.append(child.attributes['name'], rml_to_template(child, namespace))
+                    raise RmlSyntaxException('Template must have a name', self.src_path)
+                try:
+                    namespace.append(child.attributes['name'], rml_to_template(child, namespace))
+                except Exception as e:
+                    raise RmlSyntaxException('Failed to parse template', self.src_path) from e
             else:
-                raise ValueError(f'Unknown element {child.indicator}')
+                raise RmlSyntaxException(f'Unknown element {child.indicator}', self.src_path)
 
         return namespace
 
@@ -72,7 +82,12 @@ class RosemaryParser:
         return namespace
 
     def _src_to_rml_tree(self, src: str) -> RmlElement:
-        return self.transformer.transform(self.parser.parse(src))
+        try:
+            tree = self.transformer.transform(self.parser.parse(src))
+        except Exception as e:
+            raise RmlSyntaxException('Failed to parse code', self.src_path) from e
+
+        return tree
 
 
 _COMMON_NAMESPACE = RosemaryParser('common').namespace
