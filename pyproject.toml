@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "rosemary_ai"
-version = "0.0.2"
+version = "0.0.3a"
 authors = [{name="Samjna", email="snw201510@gmail.com"}]
 description = "Generative AI Template Engine"
 readme = "README.md"
@@ -18,7 +18,8 @@ classifiers = [
 
 dependencies = [
     "openai",
-    "lark"
+    "lark",
+    "anthropic"
 ]
 
 [tool.hatch.build.targets.sdist]
