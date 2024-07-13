@@ -6,6 +6,7 @@ from lark import Transformer
 from .._utils._str_escape import escape_data_indicator, escape_attribute_value, escape_plain_text  # noqa
 from .._utils._str_utils import (calc_leading_ws_and_remove_leading, clean_leading_ws_lines, # noqa
     remove_trailing_blank_lines)
+from ..exceptions import RmlTagNotClosedException
 
 
 class RmlElement:
@@ -89,6 +90,9 @@ class TreeToRmlTreeTransformer(Transformer):
         return element
 
     def element_with_body(self, items):  # noqa
+        if items[0] != items[3]:
+            raise RmlTagNotClosedException('.'.join(items[0]), '.'.join(items[3]))
+
         element = RmlElement(False, items[0])
         element.attributes = items[1]
         element.children = [child for child in items[2].children if child is not None]
