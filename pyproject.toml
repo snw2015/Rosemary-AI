@@ -6,8 +6,8 @@ build-backend = "hatchling.build"
 name = "rosemary_ai"
 version = "0.0.4"
 authors = [{name="Samjna", email="snw201510@gmail.com"}]
-description = "Generative AI Template Engine"
-readme = "README.md"
+description = "A Template Engine For LLMs and Generative AIs"
+readme = "README_PYPI.md"
 requires-python = ">=3.10"
 
 classifiers = [
