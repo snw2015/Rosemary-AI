@@ -33,7 +33,7 @@ class RosemaryLogger:
 
 
 LOGGER = RosemaryLogger()
-LOGGER.set_logging_level(logging.INFO)
+LOGGER.set_logging_level(logging.DEBUG)
 
 
 def set_verbose(verbose: bool):

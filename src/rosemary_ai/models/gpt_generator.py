@@ -58,7 +58,6 @@ class GPTChatGenerator(AbstractContentGenerator):
                 yield result
 
 
-
 class GPTImageGenerator(AbstractContentGenerator):
     def __init__(self, model_name: str):
         self.model_name = model_name
