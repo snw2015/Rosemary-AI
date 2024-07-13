@@ -1,5 +1,10 @@
-from typing import Callable, Dict, Any, Tuple, Generator
+import inspect
+import types
+import typing
+from inspect import Signature
+from typing import Callable, Dict, Any, Tuple, Generator, List
 
+from ._logger import LOGGER
 from .exceptions import ParsingFailedException
 from .models.generator_registry import get_generator
 from .parser.executor import FormatExecutor, ParseExecutor
@@ -20,14 +25,14 @@ def _generate(petal: RosemaryPetal, model_name: str, options: Dict[str, Any],
     generator = get_generator(model_name)
     # TODO if no model name given, use default model defined in petal
 
-    raw_str = generator.generate(data, options)
+    raw_data = generator.generate(data, options)
 
-    target_obj, succeed = _parse(petal, args, raw_str, target_obj=target_obj)
+    target_obj, succeed = _parse(petal, args, raw_data, target_obj=target_obj)
 
     if succeed:
         return target_obj
     else:
-        raise ParsingFailedException(f'Failed to parse from the model response: {raw_str}.')
+        raise ParsingFailedException(f'Failed to parse from the model response: {raw_data}.')
 
 
 def _generate_stream(petal: RosemaryPetal, model_name: str, options: Dict[str, Any],
@@ -51,6 +56,36 @@ def _generate_stream(petal: RosemaryPetal, model_name: str, options: Dict[str, A
         raise ParsingFailedException(f'Failed to parse from the model response: {raw_str}')
 
 
+def _fill_args(kwargs: Dict[str, Any], signature: Signature, args: Tuple[Any]) -> Dict[str, Any]:
+    kwargs = kwargs.copy()
+
+    if signature:
+        params = signature.parameters
+
+        if params:
+            for i, param in enumerate(params.values()):
+                if param.name not in kwargs:
+                    if i < len(args):
+                        kwargs[param.name] = args[i]
+                    elif param.default is not param.empty:
+                        kwargs[param.name] = param.default
+                    else:
+                        LOGGER.warning(
+                            f'Argument {param.name} without default value is not given. Will use None.')
+
+                if param.annotation is not inspect._empty and not isinstance(kwargs[param.name], param.annotation):
+                    LOGGER.warning(f'Argument "{param.name}" has value "{kwargs[param.name]}",'
+                                   f' which is not of type {param.annotation}.')
+
+    return kwargs
+
+
+def _check_return_type(result, type):
+    if (type is not inspect._empty and
+            not isinstance(result, type)):
+        LOGGER.warning(f'Generated result "{result}" is not of type {type}.')
+
+
 class Rosemary:
     def __init__(self, src_path: str):
         self._build_from_src(src_path)
@@ -59,70 +94,50 @@ class Rosemary:
         rosemary_parser = RosemaryParser(src_path)
         self.namespace: Namespace = rosemary_parser.namespace
 
-    def get_function(self, function_name: str,
+    def get_function(self, function_name: str, signature: Signature = None,
                      model_name: str = None, options: Dict[str, Any] = None) -> Callable:
         petal = self.namespace.get_by_indicator(full_name_to_indicator(function_name))
         model_name_ = model_name
         options_ = options
 
-        def func(target_obj=None,
-                 model_name: str = model_name_, options=None,
-                 **args) -> Any:
+        def func(*args, target_obj=None, model_name: str = model_name_, options=None,
+                 **kwargs) -> Any:
+            full_args = _fill_args(kwargs, signature, args)
+
             if options is None:
                 options = options_
-            return _generate(petal, model_name, options, target_obj, args)
+
+            result = _generate(petal, model_name, options, target_obj, full_args)
+
+            _check_return_type(result, signature.return_annotation)
+
+            return result
 
         return func
 
-    def get_function_bind(self, function_name: str,
-                          model_name: str = None, options: Dict[str, Any] = None) -> Callable:
-        petal = self.namespace.get_by_indicator(full_name_to_indicator(function_name))
-        model_name_ = model_name
-        options_ = options
-
-        def func(self_, target_obj=None,
-                 model_name: str = model_name_, options=None,
-                 **args) -> Any:
-            if options is None:
-                options = options_
-            args['self'] = self_
-
-            return _generate(petal, model_name, options, target_obj, args)
-
-        return func
-
-    def get_function_stream(self, function_name: str,
+    def get_function_stream(self, function_name: str, signature: Signature = None,
                             model_name: str = None, options: Dict[str, Any] = None) -> Callable:
         petal = self.namespace.get_by_indicator(full_name_to_indicator(function_name))
         model_name_ = model_name
         options_ = options
 
-        def func(target_obj=None, model_name: str = model_name_,
+        def func(*args, target_obj=None, model_name: str = model_name_,
                  options=None,
-                 **args) -> (
+                 **kwargs) -> (
                 Generator[Any, None, None]):
+            full_args = _fill_args(kwargs, signature, args)
+
             if options is None:
                 options = options_
-            for data in _generate_stream(petal, model_name, options, target_obj, args):
-                yield data
 
-        return func
+            for data in _generate_stream(petal, model_name, options, target_obj, full_args):
+                if signature.return_annotation is not inspect._empty:
+                    annotation = signature.return_annotation
 
-    def get_function_stream_bind(self, function_name: str,
-                                 model_name: str = None, options: Dict[str, Any] = None) -> Callable:
-        petal = self.namespace.get_by_indicator(full_name_to_indicator(function_name))
-        model_name_ = model_name
-        options_ = options
+                    if issubclass(typing.get_origin(annotation), typing.Generator):
+                        data_type = typing.get_args(annotation)[0]
+                        _check_return_type(data, data_type)
 
-        def func(self_, target_obj=None,
-                 model_name: str = model_name_, options=None,
-                 **args) -> (
-                Generator[Any, None, None]):
-            if options is None:
-                options = options_
-            args['self'] = self_
-
-            for data in _generate_stream(petal, model_name, options, target_obj, args):
                 yield data
 
         return func
@@ -156,24 +171,14 @@ def load(name: str, src_path: str):
         _rosemary_instances[name] = build(src_path)
 
 
-def get_function(name: str, function_name: str,
+def get_function(name: str, function_name: str, signature: Signature = None,
                  model_name: str = None, options: Dict[str, Any] = None) -> Callable:
-    return _rosemary_instances[name].get_function(function_name, model_name, options)
+    return _rosemary_instances[name].get_function(function_name, signature, model_name, options)
 
 
-def get_function_bind(name: str, function_name: str,
-                      model_name: str = None, options: Dict[str, Any] = None) -> Callable:
-    return _rosemary_instances[name].get_function_bind(function_name, model_name, options)
-
-
-def get_function_stream(name: str, function_name: str,
+def get_function_stream(name: str, function_name: str, signature: Signature,
                         model_name: str = None, options: Dict[str, Any] = None) -> Callable:
-    return _rosemary_instances[name].get_function_stream(function_name, model_name, options)
-
-
-def get_function_stream_bind(name: str, function_name: str,
-                             model_name: str = None, options: Dict[str, Any] = None) -> Callable:
-    return _rosemary_instances[name].get_function_stream_bind(function_name, model_name, options)
+    return _rosemary_instances[name].get_function_stream(function_name, signature, model_name, options)
 
 
 def _format(petal: RosemaryPetal, data: Dict[str, Any]) -> Any:
@@ -194,9 +199,9 @@ def _format(petal: RosemaryPetal, data: Dict[str, Any]) -> Any:
     return executor.get_result()
 
 
-def _parse(petal: RosemaryPetal, data: Dict[str, Any], raw_str: str, target_obj=None) -> Tuple[Any, bool]:
+def _parse(petal: RosemaryPetal, data: Dict[str, Any], raw_data: Any, target_obj=None) -> Tuple[Any, bool]:
     if petal.parser_rml is None:
-        return raw_str, True
+        return raw_data, True
 
     if petal.variable_names:
         data = {name: None for name in petal.variable_names} | data
@@ -205,7 +210,7 @@ def _parse(petal: RosemaryPetal, data: Dict[str, Any], raw_str: str, target_obj=
         data = data | {petal.target: target_obj if target_obj is not None else eval(petal.init)}
 
     env = build_environment(petal, data)
-    executor = ParseExecutor(raw_str, petal.target, target_obj)
+    executor = ParseExecutor(raw_data, petal.target, target_obj)
 
     succeed = traverse_all([env], petal.parser_rml.children, executor)
 
