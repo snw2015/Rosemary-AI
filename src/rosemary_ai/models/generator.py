@@ -5,7 +5,7 @@ from ..multi_modal.image import Image
 
 CONTENT_TYPES = (str, Image)
 ContentType: TypeAlias = Union[*CONTENT_TYPES]
-T = TypeVar('T', *CONTENT_TYPES) # noqa
+T = TypeVar('T', *CONTENT_TYPES)  # noqa
 
 
 class AbstractContentGenerator(ABC, Generic[T]):

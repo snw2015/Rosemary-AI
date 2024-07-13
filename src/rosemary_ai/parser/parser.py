@@ -4,7 +4,7 @@ from lark import Lark
 
 from .._utils._file_utils import read_and_close_file_to_root, read_and_close_file, _get_proj_root  # noqa
 from .namespace import Namespace
-from .leaf_elements import rml_to_petal, rml_to_template, RosemaryNamespace
+from .environment import rml_to_petal, rml_to_template, RosemaryNamespace
 from .transformer import RmlElement, TreeToRmlTreeTransformer
 from ..exceptions import RmlSyntaxException
 

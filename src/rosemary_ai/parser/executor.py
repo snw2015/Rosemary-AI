@@ -4,7 +4,7 @@ from typing import TypeAlias, Dict, Any, List, Tuple
 from ..exceptions import RmlFormatException
 from ..multi_modal.image import Image
 from .data_expression import DataExpression
-from .leaf_elements import VariableContext
+from .environment import VariableContext
 
 IsPlainText: TypeAlias = bool
 OutputValue: TypeAlias = str | Image
@@ -121,7 +121,7 @@ class ParseExecutor(Executor):
                 return False
             leading = self.raw_str[:pos]
             if self.last_target_repr_with_var is not None:
-                self.store_assignment(leading)
+                self._store_assignment(leading)
                 self.last_target_repr_with_var = None
             self.raw_str = self.raw_str[pos + len(value):]
         else:
@@ -135,7 +135,7 @@ class ParseExecutor(Executor):
         return self.raw_str, self.last_target_repr_with_var, self.assign_with_var_list.copy()
 
     def back_to_snapshot(self, state: Tuple[str, Tuple[DataExpression, VariableContext] | None,
-                                        List[Tuple[DataExpression, VariableContext]]]):
+                         List[Tuple[DataExpression, VariableContext]]]):
 
         self.raw_str, self.last_target_repr_with_var, self.assign_with_var_list = state
 
@@ -147,7 +147,7 @@ class ParseExecutor(Executor):
 
     def activate_assignments(self, assign_remain: bool):
         if self.last_target_repr_with_var is not None and assign_remain:
-            self.store_assignment(self.raw_str)
+            self._store_assignment(self.raw_str)
         result = self.target_obj
         for assign, env in self.assign_with_var_list:
             if self.target:
@@ -160,7 +160,7 @@ class ParseExecutor(Executor):
 
         return result
 
-    def store_assignment(self, value: str):
+    def _store_assignment(self, value: str):
         target_repr, var = self.last_target_repr_with_var
         var[OUTPUT_INDICATOR] = value
         self.assign_with_var_list += [

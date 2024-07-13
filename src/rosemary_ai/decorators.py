@@ -1,23 +1,22 @@
 import functools
+import inspect
 from typing import Dict, Any
 
-from .rosemary import get_function, get_function_stream, get_function_bind, get_function_stream_bind
+from .rosemary import get_function, get_function_stream
 
 
-def petal(rosemary_name: str, function_name: str, stream=False, bind=False,
+def petal(rosemary_name: str, function_name: str, stream=False,
           model_name: str = None, options: Dict[str, Any] = None):
-    if stream:
-        if bind:
-            rosemary_function = get_function_stream_bind(rosemary_name, function_name, model_name, options)
-        else:
-            rosemary_function = get_function_stream(rosemary_name, function_name, model_name, options)
-    else:
-        if bind:
-            rosemary_function = get_function_bind(rosemary_name, function_name, model_name, options)
-        else:
-            rosemary_function = get_function(rosemary_name, function_name, model_name, options)
-
     def decorator(func):
+        signatures = inspect.signature(func)
+
+        if stream:
+            rosemary_function = get_function_stream(rosemary_name, function_name, signatures,
+                                                    model_name, options)
+        else:
+            rosemary_function = get_function(rosemary_name, function_name, signatures,
+                                             model_name, options)
+
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
             return rosemary_function(*args, **kwargs)

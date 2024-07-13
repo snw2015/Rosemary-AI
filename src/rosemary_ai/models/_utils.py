@@ -1,6 +1,6 @@
 from typing import List, Dict
 
-from .._utils._image import _image_to_data_uri
+from .._utils._image import _image_to_data_uri  # noqa
 from ..multi_modal.image import Image
 
 
