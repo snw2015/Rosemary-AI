@@ -28,12 +28,12 @@ class RosemaryLogger:
     def set_logger(self, logger: logging.Logger):
         self.logger = logger
 
-    def set_logging_level(self, level: int):
+    def set_logging_level(self, level: int | str):
         self.logger.setLevel(level)
 
 
 LOGGER = RosemaryLogger()
-LOGGER.set_logging_level(logging.DEBUG)
+LOGGER.set_logging_level(logging.INFO)
 
 
 def set_verbose(verbose: bool):
@@ -44,6 +44,6 @@ def set_logger(logger: logging.Logger):
     LOGGER.set_logger(logger)
 
 
-def set_logging_level(level: int):
+def set_logging_level(level: int | str):
     LOGGER.set_logging_level(level)
 

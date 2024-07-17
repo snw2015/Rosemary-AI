@@ -29,6 +29,7 @@ def generator_list() -> list[str]:
     return list(_MODEL_GENERATORS.keys())
 
 
+# chat completion models
 register_generator(['gpt-3.5-t', 'gpt-3.5-turbo'], GPTChatGenerator('gpt-3.5-turbo'))
 register_generator('gpt-4', GPTChatGenerator('gpt-4'))
 register_generator(['gpt-4-t', 'gpt-4-turbo'], GPTChatGenerator('gpt-4-turbo'))
@@ -38,4 +39,5 @@ register_generator(['claude-3-h', 'claude-3-haiku'], ClaudeChatGenerator('claude
 register_generator(['claude-3-s', 'claude-3-sonnet'], ClaudeChatGenerator('claude-3-sonnet-20240229'))
 register_generator(['claude-3-o', 'claude-3-opus'], ClaudeChatGenerator('claude-3-opus-20240229'))
 
+# image generation models
 register_generator('dall-e-3', GPTImageGenerator('dall-e-3'))

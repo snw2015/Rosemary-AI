@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import TypeAlias, Generator, TypeVar, Union, Generic, Dict, Any
+from typing import TypeAlias, Generator, TypeVar, Union, Generic, Dict, Any, Callable
 
 from ..multi_modal.image import Image
 
@@ -10,12 +10,12 @@ T = TypeVar('T', *CONTENT_TYPES)  # noqa
 
 class AbstractContentGenerator(ABC, Generic[T]):
     @abstractmethod
-    def generate(self, data, options: Dict[str, Any]) -> T:
+    def generate(self, data, options: Dict[str, Any], dry_run: bool) -> T:
         pass
 
     ####
     # Stream should be generated incrementally. E.g.: '', 'this', 'this is', 'this is a', 'this is a test'
     ###
     @abstractmethod
-    def generate_stream(self, data, options: Dict[str, Any]) -> Generator[T, None, None]:
+    def generate_stream(self, data, options: Dict[str, Any], dry_run: bool) -> Generator[T, None, None]:
         pass

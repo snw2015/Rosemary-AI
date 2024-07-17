@@ -1,4 +1,4 @@
-from typing import List, Dict
+from typing import List, Dict, Any
 
 from .._utils._image import _image_to_data_uri  # noqa
 from ..multi_modal.image import Image
@@ -35,3 +35,13 @@ def _glue_str(content: List[str | Image]) -> List[Dict[str, str]]:
             content_arr.append({'type': 'image_url', 'image_url':
                 {'url': url}})
     return content_arr
+
+
+def _update_options(options: Dict[str, Any], new_options: Dict[str, List[str]], option_types: Dict[str, Any]):
+    for key, value_arr in new_options.items():
+        value_arr: List[str]
+        if key not in options:
+            value = value_arr[0]
+            if key in option_types:
+                value = option_types[key](value)
+            options[key] = value
