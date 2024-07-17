@@ -81,7 +81,7 @@ def cleandoc(items: List[TextToken]):
 class TreeToRmlTreeTransformer(Transformer):
     def rosemary(self, items):  # noqa
         element = RmlElement(False, ('$rosemary',))
-        element.children = items
+        element.children = [item for item in items if item]
         return element
 
     def element_without_body(self, items):  # noqa
@@ -127,6 +127,9 @@ class TreeToRmlTreeTransformer(Transformer):
     def placeholder(self, items):  # noqa
         text = items[0] if items else ''
         return TextToken(TextToken.TYPE.INDICATOR, text)
+
+    def COMMENT(self, token):  # noqa
+        return None
 
     def DATA_INDICATOR(self, token):  # noqa
         return escape_data_indicator(token.value)

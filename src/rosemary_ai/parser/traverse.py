@@ -131,6 +131,141 @@ def traverse_all(env: Environment, children: List[RmlElement], executor: Executo
     return True
 
 
+def _traverse_for(curr_env: Environment, element: RmlElement, executor: Executor) -> bool:
+    if 'slot' in element.attributes:  # only allowed in templates
+        slot_name = element.attributes['slot']
+        slot = curr_env.slots[slot_name]
+
+        if slot.is_inf:
+            raise RmlFormatException('Infinite slot is not allowed in for expansion.')
+
+        while slot.has_next():
+            new_env = copy(curr_env)
+            slot_info = slot.pop()
+
+            new_env.slots[slot_name] = Slot([slot_info],
+                                            slot.variable_names)
+
+            var_context = slot_info[2]
+            new_env.context.update(var_context)
+
+            succeed = traverse_all(new_env, element.children, executor)
+            if not succeed:
+                return False
+        return True
+
+    elif 'range' in element.attributes:
+        range_str = element.attributes['range']
+        loop_range = _get_range_from_str(range_str, curr_env)
+
+        return _loop_in(element, loop_range, curr_env, executor)
+    elif 'in' in element.attributes:
+        loop_list = DataExpression(element.attributes['in']).evaluate(curr_env.context)
+        if not isinstance(loop_list, Iterable):
+            raise RmlFormatException('Loop target must be iterable.')
+
+        return _loop_in(element, loop_list, curr_env, executor)
+    else:
+        raise RmlFormatException(
+            'For must have a slot, a range or an iterable object,'
+            ' given by "slot", "range" or "in" attribute.'
+        )
+
+
+def _traverse_optional(curr_env: Environment, element: RmlElement, executor: Executor) -> bool:
+    has_or = False
+    for child in element.children:
+        if child.indicator == ('or',):
+            has_or = True
+            break
+    if not has_or:  # consider the whole element as optional
+        snapshot = executor.get_snapshot()
+        succeed = traverse_all(curr_env, element.children, executor)
+        if succeed:
+            return True
+        executor.back_to_snapshot(snapshot)
+    else:  # choose first successful branch
+        for child in element.children:
+            if child.indicator != ('or',):
+                raise RmlFormatException('Only "or" elements are allowed in an "optional" element.')
+
+            snapshot = executor.get_snapshot()
+
+            succeed = traverse_all(curr_env, child.children, executor)
+            if succeed:
+                return True
+            executor.back_to_snapshot(snapshot)
+
+    required = ('required' in element.attributes and
+                DataExpression(element.attributes['required']).evaluate(curr_env.context))
+    return not required
+
+
+def _traverse_slot(curr_env: Environment, element: RmlElement, executor: Executor) -> bool:
+    assert len(element.indicator) == 1
+    indicator = element.indicator[0]
+
+    if element.children:
+        raise RmlFormatException('Slot element used in a template cannot have children.')
+
+    slot = curr_env.slots[indicator]
+    if not slot.has_next():
+        raise RmlFormatException(f'Elements found for slot "{indicator}" is not enough.')
+
+    slot_element, slot_env, _ = curr_env.slots[indicator].pop()
+
+    succeed = traverse_all(slot_env, slot_element.children, executor)
+
+    return succeed
+
+
+def _traverse_template(curr_env: Environment, element: RmlElement, executor: Executor) -> bool:
+    indicator = element.indicator
+    try:
+        template: RosemaryTemplate = curr_env.namespace.get_by_indicator(indicator)
+    except Exception:
+        raise RmlFormatException(f'Unknown tag: {indicator}.')
+
+    if not isinstance(template, RosemaryTemplate):
+        raise RmlFormatException(
+            f'The given tag name cannot be interpreted as a template or slot: {indicator}.'
+        )
+
+    new_namespace = template.namespace
+    context = {name: None for name in template.variable_names}
+    for var_name in template.variable_names:
+        if var_name in element.attributes:
+            context[var_name] = _eval(element.attributes[var_name], curr_env.context)
+
+    slot_vars = template.slot_vars
+    new_slots = {}
+
+    if len(slot_vars) == 1 and list(slot_vars.keys())[0].startswith('@'):
+        slot_name = list(slot_vars.keys())[0][1:]
+        slot_var = []
+        is_inf = True
+        new_slots[slot_name] = Slot([(element, curr_env, {})], slot_var, is_inf)
+    else:
+        for slot_name in slot_vars.keys():
+            is_inf = False
+            slot_var = slot_vars[slot_name]
+            if slot_name.startswith('*'):
+                is_inf = True
+                slot_name = slot_name[1:]
+            new_slots[slot_name] = Slot([], slot_var, is_inf)
+        for child in element.children:
+            _find_and_add_slot(child, new_slots, curr_env)
+
+    for slot_element in new_slots.values():
+        slot_element.reverse()
+
+    new_env = Environment(context, new_slots, new_namespace)
+
+    succeed = traverse_all(new_env, template.element.children, executor)
+
+    return succeed
+
+
 def traverse(curr_env: Environment, element: RmlElement, executor: Executor) -> bool:
     assert curr_env
 
@@ -203,134 +338,15 @@ def traverse(curr_env: Environment, element: RmlElement, executor: Executor) -> 
             if _eval(element.attributes['cond'], curr_env.context):
                 return traverse_all(curr_env, element.children, executor)
         elif element.indicator == ('for',):
-            if 'slot' in element.attributes:  # only allowed in templates
-                slot_name = element.attributes['slot']
-                slot = curr_env.slots[slot_name]
-
-                if slot.is_inf:
-                    raise RmlFormatException('Infinite slot is not allowed in for expansion.')
-
-                while slot.has_next():
-                    new_env = copy(curr_env)
-                    slot_info = slot.pop()
-
-                    new_env.slots[slot_name] = Slot([slot_info],
-                                                    slot.variable_names)
-
-                    var_context = slot_info[2]
-                    new_env.context.update(var_context)
-
-                    succeed = traverse_all(new_env, element.children, executor)
-                    if not succeed:
-                        return False
-                return True
-
-            elif 'range' in element.attributes:
-                range_str = element.attributes['range']
-                loop_range = _get_range_from_str(range_str, curr_env)
-
-                return _loop_in(element, loop_range, curr_env, executor)
-            elif 'in' in element.attributes:
-                loop_list = DataExpression(element.attributes['in']).evaluate(curr_env.context)
-                if not isinstance(loop_list, Iterable):
-                    raise RmlFormatException('Loop target must be iterable.')
-
-                return _loop_in(element, loop_list, curr_env, executor)
-            else:
-                raise RmlFormatException(
-                    'For must have a slot, a range or an iterable object,'
-                    ' given by "slot", "range" or "in" attribute.'
-                )
-
+            return _traverse_for(curr_env, element, executor)
         elif element.indicator == ('optional',):
-            has_or = False
-            for child in element.children:
-                if child.indicator == ('or',):
-                    has_or = True
-                    break
-            if not has_or:  # consider the whole element as optional
-                snapshot = executor.get_snapshot()
-                succeed = traverse_all(curr_env, element.children, executor)
-                if succeed:
-                    return True
-                executor.back_to_snapshot(snapshot)
-            else:  # choose first successful branch
-                for child in element.children:
-                    if child.indicator != ('or',):
-                        raise RmlFormatException('Only "or" elements are allowed in an "optional" element.')
-
-                    snapshot = executor.get_snapshot()
-
-                    succeed = traverse_all(curr_env, child.children, executor)
-                    if succeed:
-                        return True
-                    executor.back_to_snapshot(snapshot)
-
-            required = ('required' in element.attributes and
-                        DataExpression(element.attributes['required']).evaluate(curr_env.context))
-            return not required
+            return _traverse_optional(curr_env, element, executor)
         else:
-            # slots
             if len(element.indicator) == 1 and curr_env.slots:
                 indicator = element.indicator[0]
                 if indicator in curr_env.slots:
-                    if element.children:
-                        raise RmlFormatException('Slot element used in a template cannot have children.')
+                    return _traverse_slot(curr_env, element, executor)
 
-                    slot = curr_env.slots[indicator]
-                    if not slot.has_next():
-                        raise RmlFormatException(f'Elements found for slot "{indicator}" is not enough.')
-
-                    slot_element, slot_env, _ = curr_env.slots[indicator].pop()
-
-                    succeed = traverse_all(slot_env, slot_element.children, executor)
-
-                    return succeed
-
-            # templates
-            indicator = element.indicator
-            try:
-                template: RosemaryTemplate = curr_env.namespace.get_by_indicator(indicator)
-            except Exception:
-                raise RmlFormatException(f'Unknown tag: {indicator}.')
-
-            if not isinstance(template, RosemaryTemplate):
-                raise RmlFormatException(
-                    f'The given tag name cannot be interpreted as a template or slot: {indicator}.'
-                )
-
-            new_namespace = template.namespace
-            context = {name: None for name in template.variable_names}
-            for var_name in template.variable_names:
-                if var_name in element.attributes:
-                    context[var_name] = _eval(element.attributes[var_name], curr_env.context)
-
-            slot_vars = template.slot_vars
-            new_slots = {}
-
-            if len(slot_vars) == 1 and list(slot_vars.keys())[0].startswith('@'):
-                slot_name = list(slot_vars.keys())[0][1:]
-                slot_var = []
-                is_inf = True
-                new_slots[slot_name] = Slot([(element, curr_env, {})], slot_var, is_inf)
-            else:
-                for slot_name in slot_vars.keys():
-                    is_inf = False
-                    slot_var = slot_vars[slot_name]
-                    if slot_name.startswith('*'):
-                        is_inf = True
-                        slot_name = slot_name[1:]
-                    new_slots[slot_name] = Slot([], slot_var, is_inf)
-                for child in element.children:
-                    _find_and_add_slot(child, new_slots, curr_env)
-
-            for slot_element in new_slots.values():
-                slot_element.reverse()
-
-            new_env = Environment(context, new_slots, new_namespace)
-
-            succeed = traverse_all(new_env, template.element.children, executor)
-
-            return succeed
+            return _traverse_template(curr_env, element, executor)
 
     return True

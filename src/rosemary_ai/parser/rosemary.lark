@@ -4,12 +4,11 @@
 
 %ignore WS
 
-COMMENT: "<!--" /(.|\s)*?/ "-->"
-%ignore COMMENT
-
 rosemary: (xml_element)*
 
-?xml_element: element_with_body | element_without_body
+?xml_element: element_with_body | element_without_body | COMMENT
+
+COMMENT: "<!--" /(.|\s)*?/ "-->"
 
 element_with_body: "<" element_indicator attributes ">" element_body_items "</" element_indicator ">"
 element_without_body: "<" element_indicator attributes "/>"

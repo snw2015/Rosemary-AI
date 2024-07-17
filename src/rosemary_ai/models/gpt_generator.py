@@ -1,9 +1,10 @@
 from typing import Generator, Dict, Any, List
 
-from ._utils import _shape_messages
+from ._option_types import CHAT_OPTION_TYPES, IMAGE_OPTION_TYPES
+from ._utils import _shape_messages, _update_options
 from .._utils._image import _image_to_data_uri  # noqa
 from .generator import AbstractContentGenerator
-from openai import OpenAI, NOT_GIVEN
+from openai import OpenAI
 
 from .._logger import LOGGER
 
@@ -12,19 +13,26 @@ class GPTChatGenerator(AbstractContentGenerator):
     def __init__(self, model_name: str):
         self.model_name = model_name
 
-    def generate(self, data: Dict[str, str | List[Dict[str, str | List]]], options: Dict[str, Any]) -> str:
-        messages = _shape_messages(data['messages'])
+    def generate(self, data: Dict[str, str | List[Dict[str, str | List]]],
+                 options: Dict[str, Any], dry_run: bool) -> str:
+        messages = _shape_messages(data.pop('messages'))
+
+        data: Dict[str, List[str]]
+        _update_options(options, data, CHAT_OPTION_TYPES)
 
         LOGGER.info(f'Sending messages to {self.model_name}: "{messages}".')
+        LOGGER.debug(f'Options: {options}.')
 
-        api_key = options.get('api_key')
-        temperature = options.get('temperature', NOT_GIVEN)
-        max_tokens = options.get('max_tokens', NOT_GIVEN)
+        api_key = options.pop('api_key', None)
+
+        if dry_run:
+            LOGGER.info('Dry run mode enabled. Skipping API call.')
+            return ''
 
         client = OpenAI(api_key=api_key)
         completion = client.chat.completions.create(
             model=self.model_name, messages=messages,
-            temperature=temperature, max_tokens=max_tokens)  # type: ignore
+            **options)  # type: ignore
 
         LOGGER.info(f'Received response from {self.model_name}: "{completion.choices[0].message}".')
 
@@ -32,19 +40,25 @@ class GPTChatGenerator(AbstractContentGenerator):
 
         return result
 
-    def generate_stream(self, data: Dict[str, str | List[Dict[str, str | List]]], options: Dict[str, Any]) -> Generator[
-            str, None, None]:
+    def generate_stream(self, data: Dict[str, str | List[Dict[str, str | List]]],
+                        options: Dict[str, Any], dry_run: bool) -> Generator[str, None, None]:
         messages = _shape_messages(data['messages'])
 
-        LOGGER.info(f'Sending messages to {self.model_name}: "{messages}".')
+        data: Dict[str, List[str]]
+        _update_options(options, data, CHAT_OPTION_TYPES)
 
-        api_key = options.get('api_key')
-        temperature = options.get('temperature', NOT_GIVEN)
-        max_tokens = options.get('max_tokens', NOT_GIVEN)
+        LOGGER.info(f'Sending messages to {self.model_name}: "{messages}".')
+        LOGGER.debug(f'Options: {options}.')
+
+        api_key = options.pop('api_key', None)
+
+        if dry_run:
+            LOGGER.info('Dry run mode enabled. Skipping API call.')
+            return
 
         client = OpenAI(api_key=api_key)
         completion_stream = client.chat.completions.create(model=self.model_name, messages=messages,
-                                                           temperature=temperature, max_tokens=max_tokens,
+                                                           **options,
                                                            stream=True)  # type: ignore
 
         result = ''
@@ -62,22 +76,29 @@ class GPTImageGenerator(AbstractContentGenerator):
     def __init__(self, model_name: str):
         self.model_name = model_name
 
-    def generate(self, data: Dict[str, str | List[str]], options: Dict[str, Any]) -> str:
-        prompt = data['prompt']
+    def generate(self, data: Dict[str, str | List[str]],
+                 options: Dict[str, Any], dry_run: bool) -> str:
+        prompt = data.pop('prompt')
         if isinstance(prompt, list):
-            prompt = ' '.join(prompt)
+            prompt = ''.join(prompt)
+
+        data: Dict[str, List[str]]
+        _update_options(options, data, IMAGE_OPTION_TYPES)
 
         LOGGER.info(f'Sending prompt to {self.model_name}: "{prompt}".')
+        LOGGER.debug(f'Options: {options}.')
 
-        api_key = options.get('api_key')
-        quality = options.get('quality', NOT_GIVEN)
-        size = options.get('size', NOT_GIVEN)
-        style = options.get('style', NOT_GIVEN)
+        api_key = options.pop('api_key', None)
+
+        if dry_run:
+            LOGGER.info('Dry run mode enabled. Skipping API call.')
+            return ''
 
         client = OpenAI(api_key=api_key)
         image = client.images.generate(
             model=self.model_name, prompt=prompt,
-            quality=quality, size=size, style=style)  # type: ignore
+            **options
+        )  # type: ignore
 
         LOGGER.info(f'Received response from {self.model_name}: "{image.data}".')
 
@@ -85,6 +106,7 @@ class GPTImageGenerator(AbstractContentGenerator):
 
         return result
 
-    def generate_stream(self, data: Dict[str, str | List[Dict[str, str | List]]], options: Dict[str, Any]) -> Generator[
+    def generate_stream(self, data: Dict[str, str | List[Dict[str, str | List]]],
+                        options: Dict[str, Any], dry_run: bool) -> Generator[
             str, None, None]:
-        raise NotImplementedError
+        raise NotImplementedError('Stream generation is not supported for image generation.')
