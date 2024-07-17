@@ -42,7 +42,7 @@ class GPTChatGenerator(AbstractContentGenerator):
 
     def generate_stream(self, data: Dict[str, str | List[Dict[str, str | List]]],
                         options: Dict[str, Any], dry_run: bool) -> Generator[str, None, None]:
-        messages = _shape_messages(data['messages'])
+        messages = _shape_messages(data.pop('messages'))
 
         data: Dict[str, List[str]]
         _update_options(options, data, CHAT_OPTION_TYPES)
