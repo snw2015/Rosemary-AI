@@ -6,7 +6,9 @@ Rosemary is a template engine and prompt executor designed especially for genera
 image generations and more.
 
 The core concept of Rosemary is to treat the interaction with AIs as some functions. By encapsulating the data handling
-and AI model execution, you can then build any system you want just like building any other software system.
+and AI model execution, you can then build any system you want just like building any other software system. The most noticeable
+effect is that you can completely separate the prompt-design part from other business logic in the system, just like
+you separating front-end code fron the back-end side in a web appilication.
 
 The ultimate goal of rosemary is to provide a novel way to achieve an AI-based system: efficient, flexible, minimum
 AI-specific knowledge required, and easy to visualize and debug.
