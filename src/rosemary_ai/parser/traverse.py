@@ -191,7 +191,7 @@ def _traverse_optional(curr_env: Environment, element: RmlElement, executor: Exe
 
             snapshot = executor.get_snapshot()
 
-            succeed = traverse_all(curr_env, child.children, executor)
+            succeed = traverse(curr_env, child, executor)
             if succeed:
                 return True
             executor.back_to_snapshot(snapshot)
@@ -316,7 +316,8 @@ def traverse(curr_env: Environment, element: RmlElement, executor: Executor) -> 
 
                 return succeed
             case ('div',):
-
+                return traverse_all(curr_env, element.children, executor)
+            case ('or', ):
                 return traverse_all(curr_env, element.children, executor)
             case ('br',):
                 if element.children:

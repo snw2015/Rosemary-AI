@@ -86,7 +86,7 @@ def rml_to_petal(tree: RmlElement, namespace: RosemaryNamespace) -> RosemaryPeta
         parameter_names = list(map(str.strip, tree.attributes['param'].split(',')))
 
     return RosemaryPetal(formatter, parser, namespace, parameter_names, target,
-                         tree.attributes['init'] if 'init' in tree.attributes else 'None')
+                         tree.attributes['init'] if 'init' in tree.attributes else '{}')
 
 
 def _get_slot_params(str_repr: str) -> Dict[str, List[str]]:
