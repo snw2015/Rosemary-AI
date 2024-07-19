@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "rosemary_ai"
-version = "0.0.7"
+version = "0.0.8"
 authors = [{name="Samjna", email="snw201510@gmail.com"}]
 description = "A Template Engine For LLMs and Generative AIs"
 readme = "README_PYPI.md"
