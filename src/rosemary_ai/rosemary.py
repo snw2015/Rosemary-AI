@@ -257,8 +257,8 @@ def _format(petal: RosemaryPetal, data: Dict[str, Any]) -> Any:
     if petal.formatter_rml is None:
         return data
 
-    if petal.variable_names:
-        data = {name: None for name in petal.variable_names} | data
+    if petal.parameter_names:
+        data = {name: None for name in petal.parameter_names} | data
 
     env = build_environment(petal, data.copy())
     executor = FormatExecutor()
@@ -275,11 +275,14 @@ def _parse(petal: RosemaryPetal, data: Dict[str, Any], raw_data: Any, target_obj
     if petal.parser_rml is None:
         return raw_data, True
 
-    if petal.variable_names:
-        data = {name: None for name in petal.variable_names} | data
+    if petal.parameter_names:
+        data = {name: None for name in petal.parameter_names} | data
 
     if petal.target:
-        data = data | {petal.target: target_obj if target_obj is not None else eval(petal.init)}
+        if target_obj is None:
+            assert petal.init is not None
+            target_obj = eval(petal.init)
+        data[petal.target] = target_obj
 
     env = build_environment(petal, data)
     executor = ParseExecutor(raw_data, petal.target, target_obj)

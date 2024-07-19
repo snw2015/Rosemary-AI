@@ -44,9 +44,13 @@ class FormatExecutor(Executor):
             value = str(value.evaluate(variables))
 
         if self.scope_stack[-1] is None:
-            self.scope_stack[-1] = []
+            self.scope_stack[-1] = [value]
 
-        self.scope_stack[-1] += [value]
+        else:
+            if isinstance(value, str) and isinstance(self.scope_stack[-1][-1], str):
+                self.scope_stack[-1][-1] += value
+            else:
+                self.scope_stack[-1] += [value]
 
         return True
 

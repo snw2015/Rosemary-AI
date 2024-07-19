@@ -7,9 +7,9 @@ from ..parser.transformer import RmlElement
 
 class Slot:
     def __init__(self, elements_with_info: List[Tuple[RmlElement, 'Environment', VariableContext]],
-                 variable_names: List[str], is_inf: bool = False):
+                 parameter_names: List[str], is_inf: bool = False):
         self.element_with_info = elements_with_info
-        self.variable_names = variable_names
+        self.parameter_names = parameter_names
         self.is_inf = is_inf
 
     def append(self, element: RmlElement, environment: 'Environment', var_context: VariableContext):
@@ -76,45 +76,56 @@ def rml_to_petal(tree: RmlElement, namespace: RosemaryNamespace) -> RosemaryPeta
     target = None
     if 'target' in tree.attributes:
         target = tree.attributes['target']
-    variable_names = []
+    parameter_names = []
+
+    # Deprecated
     if 'var' in tree.attributes:
-        variable_names = list(map(str.strip, tree.attributes['var'].split(',')))
-    return RosemaryPetal(formatter, parser, namespace, variable_names, target,
-                         tree.attributes['init'] if 'init' in tree.attributes else 'None')
+        parameter_names = list(map(str.strip, tree.attributes['var'].split(',')))
+
+    if 'param' in tree.attributes:
+        parameter_names = list(map(str.strip, tree.attributes['param'].split(',')))
+
+    return RosemaryPetal(formatter, parser, namespace, parameter_names, target,
+                         tree.attributes['init'] if 'init' in tree.attributes else '{}')
 
 
-def _get_slot_var(str_repr: str) -> Dict[str, List[str]]:
-    slot_var = {}
+def _get_slot_params(str_repr: str) -> Dict[str, List[str]]:
+    slot_params = {}
     curr_name = None
     for s in str_repr.split(','):
         if '(' in s and ')' in s:
-            slot_var[s.split('(')[0].strip()] = []
-            var_name = s.split('(')[1].split(')')[0].strip()
-            if var_name:
-                slot_var[s.split('(')[0].strip()].append(var_name)
+            slot_params[s.split('(')[0].strip()] = []
+            param_name = s.split('(')[1].split(')')[0].strip()
+            if param_name:
+                slot_params[s.split('(')[0].strip()].append(param_name)
         elif '(' in s:
-            slot_name, var_name = s.split('(')
-            slot_var[slot_name.strip()] = [var_name.strip()]
+            slot_name, param_name = s.split('(')
+            slot_params[slot_name.strip()] = [param_name.strip()]
             curr_name = slot_name.strip()
         elif ')' in s:
-            var_name = s.split(')')[0]
-            slot_var[curr_name].append(var_name.strip())
+            param_name = s.split(')')[0]
+            slot_params[curr_name].append(param_name.strip())
             curr_name = None
         elif curr_name:
-            slot_var[curr_name].append(s.strip())
+            slot_params[curr_name].append(s.strip())
         else:
-            slot_var[s.strip()] = []
+            slot_params[s.strip()] = []
 
-    return slot_var
+    return slot_params
 
 
 def rml_to_template(tree: RmlElement, namespace: RosemaryNamespace) -> RosemaryTemplate:
-    variables = []
+    parameter_names = []
+
+    # Deprecated
     if 'var' in tree.attributes:
-        variables = list(map(str.strip, tree.attributes['var'].split(',')))
+        parameter_names = list(map(str.strip, tree.attributes['var'].split(',')))
 
-    slot_vars = {}
+    if 'param' in tree.attributes:
+        parameter_names = list(map(str.strip, tree.attributes['param'].split(',')))
+
+    slot_params = {}
     if 'slot' in tree.attributes:
-        slot_vars = _get_slot_var(tree.attributes['slot'])
+        slot_params = _get_slot_params(tree.attributes['slot'])
 
-    return RosemaryTemplate(tree, variables, slot_vars, namespace)
+    return RosemaryTemplate(tree, parameter_names, slot_params, namespace)

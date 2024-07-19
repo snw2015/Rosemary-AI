@@ -82,11 +82,11 @@ def _find_and_add_slot(element: RmlElement, new_slots: dict[str, Slot],
     elif indicator in new_slots:
         slot = new_slots[indicator]
         var_context = {}
-        for var_name in slot.variable_names:
-            if var_name in element.attributes:
-                var_context[var_name] = env.eval(element.attributes[var_name])
+        for param_name in slot.parameter_names:
+            if param_name in element.attributes:
+                var_context[param_name] = env.eval(element.attributes[param_name])
             else:
-                raise RmlFormatException(f'Slot {indicator} lacks variable {var_name}.')
+                raise RmlFormatException(f'Slot {indicator} lacks variable {param_name}.')
         slot.append(element, env, var_context)
 
     else:
@@ -144,7 +144,7 @@ def _traverse_for(curr_env: Environment, element: RmlElement, executor: Executor
             slot_info = slot.pop()
 
             new_env.slots[slot_name] = Slot([slot_info],
-                                            slot.variable_names)
+                                            slot.parameter_names)
 
             var_context = slot_info[2]
             new_env.context.update(var_context)
@@ -191,7 +191,7 @@ def _traverse_optional(curr_env: Environment, element: RmlElement, executor: Exe
 
             snapshot = executor.get_snapshot()
 
-            succeed = traverse_all(curr_env, child.children, executor)
+            succeed = traverse(curr_env, child, executor)
             if succeed:
                 return True
             executor.back_to_snapshot(snapshot)
@@ -232,23 +232,23 @@ def _traverse_template(curr_env: Environment, element: RmlElement, executor: Exe
         )
 
     new_namespace = template.namespace
-    context = {name: None for name in template.variable_names}
-    for var_name in template.variable_names:
-        if var_name in element.attributes:
-            context[var_name] = _eval(element.attributes[var_name], curr_env.context)
+    context = {name: None for name in template.parameter_names}
+    for param_name in template.parameter_names:
+        if param_name in element.attributes:
+            context[param_name] = _eval(element.attributes[param_name], curr_env.context)
 
-    slot_vars = template.slot_vars
+    slot_params = template.slot_params
     new_slots = {}
 
-    if len(slot_vars) == 1 and list(slot_vars.keys())[0].startswith('@'):
-        slot_name = list(slot_vars.keys())[0][1:]
-        slot_var = []
+    if len(slot_params) == 1 and list(slot_params.keys())[0].startswith('@'):
+        slot_name = list(slot_params.keys())[0][1:]
+        new_params = []
         is_inf = True
-        new_slots[slot_name] = Slot([(element, curr_env, {})], slot_var, is_inf)
+        new_slots[slot_name] = Slot([(element, curr_env, {})], new_params, is_inf)
     else:
-        for slot_name in slot_vars.keys():
+        for slot_name in slot_params.keys():
             is_inf = False
-            slot_var = slot_vars[slot_name]
+            slot_var = slot_params[slot_name]
             if slot_name.startswith('*'):
                 is_inf = True
                 slot_name = slot_name[1:]
@@ -281,72 +281,75 @@ def traverse(curr_env: Environment, element: RmlElement, executor: Executor) -> 
                 return False
         return True
     else:
-        if element.indicator == ('list',):
-            executor.begin_scope('list')
-            succeed = traverse_all(curr_env, element.children, executor)
-            executor.end_scope('list')
+        match element.indicator:
+            case ('list',):
+                executor.begin_scope('list')
+                succeed = traverse_all(curr_env, element.children, executor)
+                executor.end_scope('list')
 
-            return succeed
-        elif element.indicator == ('dict',):
-            executor.begin_scope('dict')
-            succeed = traverse_all(curr_env, element.children, executor)
-            executor.end_scope('dict')
+                return succeed
+            case ('dict',):
+                executor.begin_scope('dict')
+                succeed = traverse_all(curr_env, element.children, executor)
+                executor.end_scope('dict')
 
-            return succeed
-        elif element.indicator == ('list-item',):
-            executor.begin_scope('list_item')
-            succeed = traverse_all(curr_env, element.children, executor)
-            executor.end_scope('list_item', succeed)
+                return succeed
+            case ('list-item',):
+                executor.begin_scope('list_item')
+                succeed = traverse_all(curr_env, element.children, executor)
+                executor.end_scope('list_item', succeed)
 
-            return succeed
-        elif element.indicator == ('dict-item',):
-            if 'key' not in element.attributes and 'key_eval' not in element.attributes:
-                raise RmlFormatException('Dict item must have a key, given by "key" or "key_eval" attribute.')
+                return succeed
+            case ('dict-item',):
+                if 'key' not in element.attributes and 'key_eval' not in element.attributes:
+                    raise RmlFormatException('Dict item must have a key, given by "key" or "key_eval" attribute.')
 
-            key = None
-            if 'key' in element.attributes:
-                key = element.attributes['key']
-            if 'key_eval' in element.attributes:
-                key = _eval(element.attributes['key_eval'], curr_env.context)
+                key = None
+                if 'key' in element.attributes:
+                    key = element.attributes['key']
+                if 'key_eval' in element.attributes:
+                    key = _eval(element.attributes['key_eval'], curr_env.context)
 
-            executor.begin_scope('dict_item', key)
-            succeed = traverse_all(curr_env, element.children, executor)
-            executor.end_scope('dict_item', succeed)
+                executor.begin_scope('dict_item', key)
+                succeed = traverse_all(curr_env, element.children, executor)
+                executor.end_scope('dict_item', succeed)
 
-            return succeed
-        elif element.indicator == ('br',):
-            if element.children:
-                raise RmlFormatException('br element cannot have children.')
-            executor.execute('\n', curr_env.context)
-
-            return True
-        elif element.indicator == ('img',):
-            if 'src' not in element.attributes and 'src_eval' not in element.attributes:
-                raise RmlFormatException('Image must have a source, given by "src" or "src_eval" attribute.')
-
-            src = None
-            if 'src' in element.attributes:
-                src = element.attributes['src']
-            if 'src_eval' in element.attributes:
-                src = _eval(element.attributes['src_eval'], curr_env.context)
-
-            executor.execute(Image(src), curr_env.context)
-            return True
-        elif element.indicator == ('if',):
-            if 'cond' not in element.attributes:
-                raise RmlFormatException('If must have a condition, given by "cond" attribute.')
-            if _eval(element.attributes['cond'], curr_env.context):
+                return succeed
+            case ('div',):
                 return traverse_all(curr_env, element.children, executor)
-        elif element.indicator == ('for',):
-            return _traverse_for(curr_env, element, executor)
-        elif element.indicator == ('optional',):
-            return _traverse_optional(curr_env, element, executor)
-        else:
-            if len(element.indicator) == 1 and curr_env.slots:
-                indicator = element.indicator[0]
-                if indicator in curr_env.slots:
-                    return _traverse_slot(curr_env, element, executor)
+            case ('or', ):
+                return traverse_all(curr_env, element.children, executor)
+            case ('br',):
+                if element.children:
+                    raise RmlFormatException('br element cannot have children.')
+                executor.execute('\n', curr_env.context)
 
-            return _traverse_template(curr_env, element, executor)
+                return True
+            case ('img',):
+                if 'src' not in element.attributes and 'src_eval' not in element.attributes:
+                    raise RmlFormatException('Image must have a source, given by "src" or "src_eval" attribute.')
+
+                src = None
+                if 'src' in element.attributes:
+                    src = element.attributes['src']
+                if 'src_eval' in element.attributes:
+                    src = _eval(element.attributes['src_eval'], curr_env.context)
+
+                executor.execute(Image(src), curr_env.context)
+                return True
+            case ('if',):
+                if 'cond' not in element.attributes:
+                    raise RmlFormatException('If must have a condition, given by "cond" attribute.')
+                if _eval(element.attributes['cond'], curr_env.context):
+                    return traverse_all(curr_env, element.children, executor)
+            case ('for',):
+                return _traverse_for(curr_env, element, executor)
+            case ('optional',):
+                return _traverse_optional(curr_env, element, executor)
+            case indicator:
+                if len(indicator) == 1 and indicator[0] in curr_env.slots:
+                    return _traverse_slot(curr_env, element, executor)
+                else:
+                    return _traverse_template(curr_env, element, executor)
 
     return True
