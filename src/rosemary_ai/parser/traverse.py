@@ -82,11 +82,11 @@ def _find_and_add_slot(element: RmlElement, new_slots: dict[str, Slot],
     elif indicator in new_slots:
         slot = new_slots[indicator]
         var_context = {}
-        for var_name in slot.variable_names:
-            if var_name in element.attributes:
-                var_context[var_name] = env.eval(element.attributes[var_name])
+        for param_name in slot.parameter_names:
+            if param_name in element.attributes:
+                var_context[param_name] = env.eval(element.attributes[param_name])
             else:
-                raise RmlFormatException(f'Slot {indicator} lacks variable {var_name}.')
+                raise RmlFormatException(f'Slot {indicator} lacks variable {param_name}.')
         slot.append(element, env, var_context)
 
     else:
@@ -144,7 +144,7 @@ def _traverse_for(curr_env: Environment, element: RmlElement, executor: Executor
             slot_info = slot.pop()
 
             new_env.slots[slot_name] = Slot([slot_info],
-                                            slot.variable_names)
+                                            slot.parameter_names)
 
             var_context = slot_info[2]
             new_env.context.update(var_context)
@@ -232,23 +232,23 @@ def _traverse_template(curr_env: Environment, element: RmlElement, executor: Exe
         )
 
     new_namespace = template.namespace
-    context = {name: None for name in template.variable_names}
-    for var_name in template.variable_names:
-        if var_name in element.attributes:
-            context[var_name] = _eval(element.attributes[var_name], curr_env.context)
+    context = {name: None for name in template.parameter_names}
+    for param_name in template.parameter_names:
+        if param_name in element.attributes:
+            context[param_name] = _eval(element.attributes[param_name], curr_env.context)
 
-    slot_vars = template.slot_vars
+    slot_params = template.slot_params
     new_slots = {}
 
-    if len(slot_vars) == 1 and list(slot_vars.keys())[0].startswith('@'):
-        slot_name = list(slot_vars.keys())[0][1:]
-        slot_var = []
+    if len(slot_params) == 1 and list(slot_params.keys())[0].startswith('@'):
+        slot_name = list(slot_params.keys())[0][1:]
+        new_params = []
         is_inf = True
-        new_slots[slot_name] = Slot([(element, curr_env, {})], slot_var, is_inf)
+        new_slots[slot_name] = Slot([(element, curr_env, {})], new_params, is_inf)
     else:
-        for slot_name in slot_vars.keys():
+        for slot_name in slot_params.keys():
             is_inf = False
-            slot_var = slot_vars[slot_name]
+            slot_var = slot_params[slot_name]
             if slot_name.startswith('*'):
                 is_inf = True
                 slot_name = slot_name[1:]

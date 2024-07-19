@@ -2,7 +2,7 @@
 <import path="_gpt.rml"/>
 
 <corolla name="gpt">
-    <template name="chat" var="max_tokens, temperature, timeout" slot="message(role), system">
+    <template name="chat" param="max_tokens, temperature, timeout" slot="message(role)">
         <dict>
             <dict-item key="messages">
                 <list>
@@ -22,7 +22,7 @@
     </template>
 
     <corolla name="image">
-        <template name="generate" var="strict, quality, size, style" slot="@prompt">
+        <template name="generate" param="strict, quality, size, style" slot="@prompt">
             <dict>
                 <dict-item key="prompt">
                     <if cond="strict">

@@ -9,20 +9,20 @@ RosemaryNamespace: TypeAlias = Namespace[LeafElement]
 
 class RosemaryTemplate:
     def __init__(self, element: RmlElement,
-                 variable_names: List[str], slot_vars: Dict[str, List[str]], namespace: RosemaryNamespace):
+                 parameter_names: List[str], slot_params: Dict[str, List[str]], namespace: RosemaryNamespace):
         self.element = element
-        self.variable_names = variable_names
-        self.slot_vars = slot_vars
+        self.parameter_names = parameter_names
+        self.slot_params = slot_params
         self.namespace = namespace
 
 
 class RosemaryPetal:
     def __init__(self, formatter_rml: RmlElement, parser_rml: RmlElement, namespace: RosemaryNamespace,
-                 variable_names: List[str], target: str = '', init: str = '{}'):
+                 parameter_names: List[str], target: str = '', init: str = '{}'):
         self.formatter_rml = formatter_rml
         self.parser_rml = parser_rml
         self.namespace = namespace
-        self.variable_names = variable_names
+        self.parameter_names = parameter_names
         self.target = target
         self.init = init
 
