@@ -68,12 +68,18 @@ def rml_to_petal(tree: RmlElement, namespace: RosemaryNamespace) -> RosemaryPeta
 
     _check_invalid_attributes(tree, RESERVED_ATTR_NAMES['petal'])
 
+    is_parse_strict = False
+
     for child in tree.children:
         if child.is_text:
             continue
         elif child.indicator == ('formatter',):
+            _check_invalid_attributes(child, RESERVED_ATTR_NAMES['formatter'])
             formatter = child
         elif child.indicator == ('parser',):
+            _check_invalid_attributes(child, RESERVED_ATTR_NAMES['parser'])
+            if 'strict' in child.attributes:
+                is_parse_strict = eval(child.attributes['strict'], {})
             parser = child
         else:
             raise ValueError(f'Unknown element {child.indicator}')
@@ -90,7 +96,8 @@ def rml_to_petal(tree: RmlElement, namespace: RosemaryNamespace) -> RosemaryPeta
         parameter_names = list(map(str.strip, tree.attributes['param'].split(',')))
 
     return RosemaryPetal(formatter, parser, namespace, parameter_names, target,
-                         tree.attributes['init'] if 'init' in tree.attributes else '{}')
+                         tree.attributes['init'] if 'init' in tree.attributes else '{}',
+                         is_parse_strict)
 
 
 def _get_slot_params(str_repr: str) -> Dict[str, List[str]]:

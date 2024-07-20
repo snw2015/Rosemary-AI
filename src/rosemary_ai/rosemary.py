@@ -285,7 +285,7 @@ def _parse(petal: RosemaryPetal, data: Dict[str, Any], raw_data: Any, target_obj
         data[petal.target] = target_obj
 
     env = build_environment(petal, data)
-    executor = ParseExecutor(raw_data, petal.target, target_obj)
+    executor = ParseExecutor(raw_data, petal.target, target_obj, petal.is_parse_strict)
 
     succeed = traverse_all(env, petal.parser_rml.children, executor)
 

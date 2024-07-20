@@ -6,6 +6,8 @@ RESERVED_ATTR_NAMES = {
     'import': {'path'},
     'template': {'name', 'param', 'var', 'slot'},
     'petal': {'name', 'param', 'var', 'target'},
+    'formatter': set(),
+    'parser': {'strict'},
     'img': {'src', 'src_eval'},
     'if': {'cond'},
     'for': {'range', 'in', 'var', 'slot', 'try'},
