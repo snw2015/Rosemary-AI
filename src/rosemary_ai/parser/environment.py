@@ -1,5 +1,6 @@
 from typing import List, Tuple, TypeAlias, Dict
 
+from ._utils import _check_invalid_attributes, RESERVED_ATTR_NAMES
 from ..parser.data_expression import VariableContext, DataExpression
 from ..parser.leaf_elements import RosemaryPetal, RosemaryTemplate, RosemaryNamespace
 from ..parser.transformer import RmlElement
@@ -64,6 +65,9 @@ def build_environment(petal, data: VariableContext) -> Environment:
 def rml_to_petal(tree: RmlElement, namespace: RosemaryNamespace) -> RosemaryPetal:
     formatter = None
     parser = None
+
+    _check_invalid_attributes(tree, RESERVED_ATTR_NAMES['petal'])
+
     for child in tree.children:
         if child.is_text:
             continue
@@ -116,6 +120,8 @@ def _get_slot_params(str_repr: str) -> Dict[str, List[str]]:
 
 def rml_to_template(tree: RmlElement, namespace: RosemaryNamespace) -> RosemaryTemplate:
     parameter_names = []
+
+    _check_invalid_attributes(tree, RESERVED_ATTR_NAMES['template'])
 
     # Deprecated
     if 'var' in tree.attributes:

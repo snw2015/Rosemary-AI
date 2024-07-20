@@ -1,4 +1,4 @@
-from typing import Tuple
+from typing import Tuple, Set, List
 
 
 def full_name_to_indicator(full_name: str) -> Tuple[str, ...]:
@@ -62,3 +62,25 @@ def remove_trailing_blank_lines(text: str) -> str:
     while lines and not lines[-1].strip():
         lines.pop()
     return '\n'.join(lines)
+
+
+VALID_CHARACTERS = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_'
+
+
+def _get_edited_strings(s: str) -> List[str]:
+    edited_strings = []
+    for i in range(len(s)):
+        prefix = s[:i]
+        suffix = s[i + 1:]
+        edited_strings.append(prefix + suffix)  # Delete
+        for c in VALID_CHARACTERS:
+            edited_strings.append(prefix + c + suffix)   # Replace
+            edited_strings.append(prefix + c + s[i] + suffix)  # Insert
+
+    return edited_strings
+
+
+def did_you_mean(s: str, candidates: Set[str]) -> str:
+    for edited_string in _get_edited_strings(s):
+        if edited_string in candidates:
+            return edited_string

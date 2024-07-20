@@ -9,6 +9,9 @@ from .leaf_elements import RosemaryTemplate
 from .environment import Slot, Environment
 from .transformer import RmlElement, TextToken
 
+from ._utils import RESERVED_ATTR_NAMES, _check_invalid_attributes
+from .._utils._str_utils import did_you_mean  # noqa
+
 
 def _eval(repr_, context, need_copy=True):
     return DataExpression(repr_).evaluate(context, need_copy)
@@ -30,6 +33,8 @@ def _find_and_add_slot(element: RmlElement, new_slots: dict[str, Slot],
 
     indicator = element.indicator[0]
     if indicator == 'if':
+        _check_invalid_attributes(element, RESERVED_ATTR_NAMES['if'])
+
         if 'cond' not in element.attributes:
             raise RmlFormatException('If must have a condition, given by "cond" attribute.')
 
@@ -37,6 +42,8 @@ def _find_and_add_slot(element: RmlElement, new_slots: dict[str, Slot],
             for child in element.children:
                 _find_and_add_slot(child, new_slots, env)
     elif indicator == 'for':
+        _check_invalid_attributes(element, RESERVED_ATTR_NAMES['for'])
+
         if 'range' in element.attributes:
             range_str = element.attributes['range']
             loop_range = _get_range_from_str(range_str, env)
@@ -82,11 +89,15 @@ def _find_and_add_slot(element: RmlElement, new_slots: dict[str, Slot],
     elif indicator in new_slots:
         slot = new_slots[indicator]
         var_context = {}
+
+        _check_invalid_attributes(element, set(slot.parameter_names))
+
         for param_name in slot.parameter_names:
             if param_name in element.attributes:
                 var_context[param_name] = env.eval(element.attributes[param_name])
             else:
-                raise RmlFormatException(f'Slot {indicator} lacks variable {param_name}.')
+                var_context[param_name] = None
+
         slot.append(element, env, var_context)
 
     else:
@@ -132,6 +143,8 @@ def traverse_all(env: Environment, children: List[RmlElement], executor: Executo
 
 
 def _traverse_for(curr_env: Environment, element: RmlElement, executor: Executor) -> bool:
+    _check_invalid_attributes(element, RESERVED_ATTR_NAMES['for'])
+
     if 'slot' in element.attributes:  # only allowed in templates
         slot_name = element.attributes['slot']
         slot = curr_env.slots[slot_name]
@@ -173,6 +186,8 @@ def _traverse_for(curr_env: Environment, element: RmlElement, executor: Executor
 
 
 def _traverse_optional(curr_env: Environment, element: RmlElement, executor: Executor) -> bool:
+    _check_invalid_attributes(element, RESERVED_ATTR_NAMES['optional'])
+
     has_or = False
     for child in element.children:
         if child.indicator == ('or',):
@@ -203,6 +218,9 @@ def _traverse_optional(curr_env: Environment, element: RmlElement, executor: Exe
 
 def _traverse_slot(curr_env: Environment, element: RmlElement, executor: Executor) -> bool:
     assert len(element.indicator) == 1
+
+    _check_invalid_attributes(element, set())
+
     indicator = element.indicator[0]
 
     if element.children:
@@ -221,6 +239,7 @@ def _traverse_slot(curr_env: Environment, element: RmlElement, executor: Executo
 
 def _traverse_template(curr_env: Environment, element: RmlElement, executor: Executor) -> bool:
     indicator = element.indicator
+
     try:
         template: RosemaryTemplate = curr_env.namespace.get_by_indicator(indicator)
     except Exception:
@@ -232,10 +251,15 @@ def _traverse_template(curr_env: Environment, element: RmlElement, executor: Exe
         )
 
     new_namespace = template.namespace
-    context = {name: None for name in template.parameter_names}
+
+    _check_invalid_attributes(element, set(template.parameter_names))
+
+    context = {}
     for param_name in template.parameter_names:
         if param_name in element.attributes:
             context[param_name] = _eval(element.attributes[param_name], curr_env.context)
+        else:
+            context[param_name] = None
 
     slot_params = template.slot_params
     new_slots = {}
@@ -283,24 +307,32 @@ def traverse(curr_env: Environment, element: RmlElement, executor: Executor) -> 
     else:
         match element.indicator:
             case ('list',):
+                _check_invalid_attributes(element, RESERVED_ATTR_NAMES['list'])
+
                 executor.begin_scope('list')
                 succeed = traverse_all(curr_env, element.children, executor)
                 executor.end_scope('list')
 
                 return succeed
             case ('dict',):
+                _check_invalid_attributes(element, RESERVED_ATTR_NAMES['dict'])
+
                 executor.begin_scope('dict')
                 succeed = traverse_all(curr_env, element.children, executor)
                 executor.end_scope('dict')
 
                 return succeed
             case ('list-item',):
+                _check_invalid_attributes(element, RESERVED_ATTR_NAMES['list-item'])
+
                 executor.begin_scope('list_item')
                 succeed = traverse_all(curr_env, element.children, executor)
                 executor.end_scope('list_item', succeed)
 
                 return succeed
             case ('dict-item',):
+                _check_invalid_attributes(element, RESERVED_ATTR_NAMES['dict-item'])
+
                 if 'key' not in element.attributes and 'key_eval' not in element.attributes:
                     raise RmlFormatException('Dict item must have a key, given by "key" or "key_eval" attribute.')
 
@@ -316,16 +348,24 @@ def traverse(curr_env: Environment, element: RmlElement, executor: Executor) -> 
 
                 return succeed
             case ('div',):
+                _check_invalid_attributes(element, RESERVED_ATTR_NAMES['div'])
+
                 return traverse_all(curr_env, element.children, executor)
             case ('or', ):
+                _check_invalid_attributes(element, RESERVED_ATTR_NAMES['or'])
+
                 return traverse_all(curr_env, element.children, executor)
             case ('br',):
+                _check_invalid_attributes(element, RESERVED_ATTR_NAMES['br'])
+
                 if element.children:
                     raise RmlFormatException('br element cannot have children.')
                 executor.execute('\n', curr_env.context)
 
                 return True
             case ('img',):
+                _check_invalid_attributes(element, RESERVED_ATTR_NAMES['img'])
+
                 if 'src' not in element.attributes and 'src_eval' not in element.attributes:
                     raise RmlFormatException('Image must have a source, given by "src" or "src_eval" attribute.')
 
@@ -338,13 +378,19 @@ def traverse(curr_env: Environment, element: RmlElement, executor: Executor) -> 
                 executor.execute(Image(src), curr_env.context)
                 return True
             case ('if',):
+                _check_invalid_attributes(element, RESERVED_ATTR_NAMES['if'])
+
                 if 'cond' not in element.attributes:
                     raise RmlFormatException('If must have a condition, given by "cond" attribute.')
                 if _eval(element.attributes['cond'], curr_env.context):
                     return traverse_all(curr_env, element.children, executor)
             case ('for',):
+                _check_invalid_attributes(element, RESERVED_ATTR_NAMES['for'])
+
                 return _traverse_for(curr_env, element, executor)
             case ('optional',):
+                _check_invalid_attributes(element, RESERVED_ATTR_NAMES['optional'])
+
                 return _traverse_optional(curr_env, element, executor)
             case indicator:
                 if len(indicator) == 1 and indicator[0] in curr_env.slots:
