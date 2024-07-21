@@ -1,3 +1,4 @@
+import inspect
 import typing
 from inspect import Signature
 from typing import Callable, Dict, Any, Tuple, Generator
@@ -25,10 +26,32 @@ def _generate(petal: RosemaryPetal, model_name: str, options: Dict[str, Any],
 
     data = _format(petal, args)
 
-    generator = get_generator(model_name)
-    # TODO if no model name given, use default model defined in petal
+    generator = get_generator(model_name if model_name else petal.default_model_name)
 
     raw_data = generator.generate(data, options, dry_run)
+    if dry_run:
+        raw_data = dry_run_val
+
+    target_obj, succeed = _parse(petal, args, raw_data, target_obj)
+
+    if succeed:
+        return target_obj
+    else:
+        raise ParsingFailedException(f'Failed to parse from the model response: {raw_data}.')
+
+
+async def _generate_async(petal: RosemaryPetal, model_name: str, options: Dict[str, Any],
+                          dry_run: bool, dry_run_val,
+                          target_obj, args: Dict[str, Any]) -> Any:
+    if options is None:
+        options = {}
+
+    data = _format(petal, args)
+
+    generator = get_generator(model_name if model_name else petal.default_model_name)
+
+    raw_data = await generator.generate_async(data, options, dry_run)
+
     if dry_run:
         raw_data = dry_run_val
 
@@ -48,8 +71,7 @@ def _generate_stream(petal: RosemaryPetal, model_name: str, options: Dict[str, A
 
     data = _format(petal, args)
 
-    generator = get_generator(model_name)
-    # TODO if no model name given, use default model defined in petal
+    generator = get_generator(model_name if model_name else petal.default_model_name)
 
     succeed = False
     raw_data = None
@@ -61,6 +83,34 @@ def _generate_stream(petal: RosemaryPetal, model_name: str, options: Dict[str, A
             yield target_obj
     else:
         for raw_data in dry_run_generator:
+            target_obj, succeed = _parse(petal, args, raw_data, target_obj)
+
+            yield target_obj
+
+    if not succeed:
+        raise ParsingFailedException(f'Failed to parse from the model response: {raw_data}')
+
+
+async def _generate_stream_async(petal: RosemaryPetal, model_name: str, options: Dict[str, Any],
+                                 dry_run: bool, dry_run_generator,
+                                 target_obj, args: Dict[str, Any]) -> Generator[Any, None, None]:
+    if options is None:
+        options = {}
+
+    data = _format(petal, args)
+
+    generator = get_generator(model_name if model_name else petal.default_model_name)
+
+    succeed = False
+    raw_data = None
+
+    if not dry_run:
+        async for raw_data in generator.generate_stream_async(data, options, dry_run):
+            target_obj, succeed = _parse(petal, args, raw_data, target_obj)
+
+            yield target_obj
+    else:
+        async for raw_data in dry_run_generator:
             target_obj, succeed = _parse(petal, args, raw_data, target_obj)
 
             yield target_obj
@@ -124,6 +174,45 @@ def _check_return_type(result, type_):
         pass
 
 
+def _format(petal: RosemaryPetal, data: Dict[str, Any]) -> Any:
+    if petal.formatter_rml is None:
+        return data
+
+    if petal.parameter_names:
+        data = {name: None for name in petal.parameter_names} | data
+
+    env = build_environment(petal, data.copy())
+    executor = FormatExecutor()
+
+    succeed = traverse_all(env, petal.formatter_rml.children, executor)
+
+    if not succeed:
+        raise ValueError('Failed to format')
+
+    return executor.get_result()
+
+
+def _parse(petal: RosemaryPetal, data: Dict[str, Any], raw_data: Any, target_obj=None) -> Tuple[Any, bool]:
+    if petal.parser_rml is None:
+        return raw_data, True
+
+    if petal.parameter_names:
+        data = {name: None for name in petal.parameter_names} | data
+
+    if petal.target:
+        if target_obj is None:
+            assert petal.init is not None
+            target_obj = eval(petal.init)
+        data[petal.target] = target_obj
+
+    env = build_environment(petal, data)
+    executor = ParseExecutor(raw_data, petal.target, target_obj, petal.is_parse_strict)
+
+    succeed = traverse_all(env, petal.parser_rml.children, executor)
+
+    return executor.activate_assignments(succeed), succeed
+
+
 class Rosemary:
     def __init__(self, src_path: str):
         self._build_from_src(src_path)
@@ -134,16 +223,14 @@ class Rosemary:
 
     def get_function(self, function_name: str, signature: Signature = None,
                      model_name: str = None, options: Dict[str, Any] = None,
-                     dry_run_val=None) -> Callable:
+                     dry_run_val=None, is_async: bool = False) -> Callable:
         petal = self.namespace.get_by_indicator(full_name_to_indicator(function_name))
         model_name_ = model_name
         options_ = options
 
         _print_unsupported_types_hint(signature)
 
-        def func(*args, target_obj=None, model_name: str = model_name_, options=None,
-                 max_tries: int = 1, dry_run: bool = False,
-                 **kwargs) -> Any:
+        def __set_up(kwargs: Dict[str, Any], args: Tuple[Any], options: Dict[str, Any], max_tries: int) -> Tuple:
             full_args = _fill_args(kwargs, signature, args)
 
             if options is None:
@@ -154,29 +241,64 @@ class Rosemary:
                 max_tries = _MAX_TRIES
                 inf_tries = True
 
-            for time_try in range(max_tries):
-                try:
-                    result = _generate(petal, model_name, options, dry_run, dry_run_val, target_obj, full_args)
-                except ParsingFailedException as e:
-                    LOGGER.info(str(e))
-                    if time_try < max_tries - 1:
-                        if inf_tries:
-                            LOGGER.info(f'Retrying... ({time_try + 2})')
-                        elif max_tries > 1:
-                            LOGGER.info(f'Retrying... ({time_try + 2}/{max_tries})')
-                    continue
+            return full_args, options, max_tries, inf_tries
 
-                _check_return_type(result, signature.return_annotation)
+        def __handle_exception(e: ParsingFailedException, time_try: int, max_tries: int, inf_tries: bool):
+            LOGGER.info(str(e))
+            if time_try < max_tries - 1:
+                if inf_tries:
+                    LOGGER.info(f'Retrying... ({time_try + 2})')
+                elif max_tries > 1:
+                    LOGGER.info(f'Retrying... ({time_try + 2}/{max_tries})')
 
-                return result
+        if is_async:
+            async def func(*args, target_obj=None, model_name: str = model_name_, options=None,
+                           max_tries: int = 1, dry_run: bool = False,
+                           **kwargs) -> Any:
+                full_args, options, max_tries, inf_tries = __set_up(kwargs, args, options, max_tries)
 
-            raise ParsingFailedException(f'Failed to parse from the model response after {max_tries} tries.')
+                for time_try in range(max_tries):
+                    try:
+                        result = await _generate_async(petal, model_name, options, dry_run,
+                                                       dry_run_val, target_obj, full_args)
+                    except ParsingFailedException as e:
+                        __handle_exception(e, time_try, max_tries, inf_tries)
+                        continue
+
+                    _check_return_type(result, signature.return_annotation)
+
+                    return result
+
+                raise ParsingFailedException(f'Failed to parse from the model response after {max_tries} tries.')
+
+
+        else:
+
+            def func(*args, target_obj=None, model_name: str = model_name_, options=None,
+                     max_tries: int = 1, dry_run: bool = False,
+                     **kwargs) -> Any:
+                full_args, options, max_tries, inf_tries = __set_up(kwargs, args, options, max_tries)
+
+                for time_try in range(max_tries):
+                    try:
+                        result = _generate(petal, model_name, options, dry_run, dry_run_val,
+                                           target_obj, full_args)
+                    except ParsingFailedException as e:
+                        __handle_exception(e, time_try, max_tries, inf_tries)
+                        continue
+
+                    _check_return_type(result, signature.return_annotation)
+
+                    return result
+
+                raise ParsingFailedException(f'Failed to parse from the model response after {max_tries} tries.')
 
         return func
 
     def get_function_stream(self, function_name: str, signature: Signature = None,
                             model_name: str = None, options: Dict[str, Any] = None,
-                            dry_run_generator: Generator = None) -> Callable:
+                            dry_run_generator: Generator = None,
+                            is_async: bool = False) -> Callable:
         petal = self.namespace.get_by_indicator(full_name_to_indicator(function_name))
         model_name_ = model_name
         options_ = options
@@ -192,9 +314,7 @@ class Rosemary:
             else:
                 LOGGER.warning(f'Return type "{annotation}" of "{function_name}" is not a generator type.')
 
-        def func(*args, target_obj=None, model_name: str = model_name_, options=None,
-                 max_tries: int = 1, dry_run: bool = False,
-                 **kwargs) -> (Generator[Any, None, None]):
+        def __set_up(kwargs: Dict[str, Any], args: Tuple[Any], options: Dict[str, Any], max_tries: int) -> Tuple:
             if max_tries != 1:
                 LOGGER.warning('max_tries is not supported in stream mode. Will only try once.')
 
@@ -203,12 +323,32 @@ class Rosemary:
             if options is None:
                 options = options_
 
-            for data in _generate_stream(petal, model_name, options,
-                                         dry_run, dry_run_generator, target_obj, full_args):
-                if data_type:
-                    _check_return_type(data, data_type)
+            return full_args, options
 
-                yield data
+        if is_async:
+            async def func(*args, target_obj=None, model_name: str = model_name_, options=None,
+                           max_tries: int = 1, dry_run: bool = False,
+                           **kwargs) -> (Generator[Any, None, None]):
+                full_args, options = __set_up(kwargs, args, options, max_tries)
+
+                async for data in _generate_stream_async(petal, model_name, options,
+                                                         dry_run, dry_run_generator, target_obj, full_args):
+                    if data_type:
+                        _check_return_type(data, data_type)
+
+                    yield data
+        else:
+            def func(*args, target_obj=None, model_name: str = model_name_, options=None,
+                     max_tries: int = 1, dry_run: bool = False,
+                     **kwargs) -> (Generator[Any, None, None]):
+                full_args, options = __set_up(kwargs, args, options, max_tries)
+
+                for data in _generate_stream(petal, model_name, options,
+                                             dry_run, dry_run_generator, target_obj, full_args):
+                    if data_type:
+                        _check_return_type(data, data_type)
+
+                    yield data
 
         return func
 
@@ -242,51 +382,16 @@ def load(name: str, src_path: str):
 
 
 def get_function(name: str, function_name: str, signature: Signature = None,
-                 model_name: str = None, options: Dict[str, Any] = None, dry_run_val=None) -> Callable:
-    return _ROSEMARY_INSTANCE[name].get_function(function_name, signature, model_name, options, dry_run_val)
+                 model_name: str = None, options: Dict[str, Any] = None, dry_run_val=None,
+                 is_async: bool = False) -> Callable:
+    return _ROSEMARY_INSTANCE[name].get_function(
+        function_name, signature, model_name, options, dry_run_val, is_async
+    )
 
 
 def get_function_stream(name: str, function_name: str, signature: Signature,
                         model_name: str = None, options: Dict[str, Any] = None,
-                        dry_run_generator: Generator = None) -> Callable:
+                        dry_run_generator: Generator = None,
+                        is_async: bool = False) -> Callable:
     return _ROSEMARY_INSTANCE[name].get_function_stream(function_name, signature, model_name,
-                                                        options, dry_run_generator)
-
-
-def _format(petal: RosemaryPetal, data: Dict[str, Any]) -> Any:
-    if petal.formatter_rml is None:
-        return data
-
-    if petal.parameter_names:
-        data = {name: None for name in petal.parameter_names} | data
-
-    env = build_environment(petal, data.copy())
-    executor = FormatExecutor()
-
-    succeed = traverse_all(env, petal.formatter_rml.children, executor)
-
-    if not succeed:
-        raise ValueError('Failed to format')
-
-    return executor.get_result()
-
-
-def _parse(petal: RosemaryPetal, data: Dict[str, Any], raw_data: Any, target_obj=None) -> Tuple[Any, bool]:
-    if petal.parser_rml is None:
-        return raw_data, True
-
-    if petal.parameter_names:
-        data = {name: None for name in petal.parameter_names} | data
-
-    if petal.target:
-        if target_obj is None:
-            assert petal.init is not None
-            target_obj = eval(petal.init)
-        data[petal.target] = target_obj
-
-    env = build_environment(petal, data)
-    executor = ParseExecutor(raw_data, petal.target, target_obj)
-
-    succeed = traverse_all(env, petal.parser_rml.children, executor)
-
-    return executor.activate_assignments(succeed), succeed
+                                                        options, dry_run_generator, is_async)

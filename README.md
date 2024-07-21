@@ -133,7 +133,7 @@ The code to execute the function is as simple as you can imagine:
 print(hello('Alice'))
 ```
 
-> if you haven't set the `OPENAI_API_KEY` environment variable, you can set it in the code now:
+> If you haven't set the `OPENAI_API_KEY` environment variable, you can set it in the code now:
 > ```python
 > print(hello('Alice', options={'api_key': your_api_key}))
 > ```

@@ -106,12 +106,13 @@ OUTPUT_INDICATOR = '__'
 
 
 class ParseExecutor(Executor):
-    def __init__(self, raw_str: str, target: str, target_obj):
+    def __init__(self, raw_str: str, target: str, target_obj, is_parse_strict: bool):
         self.raw_str: str = raw_str
         self.last_target_repr_with_var: Tuple[DataExpression, VariableContext] | None = None
         self.assign_with_var_list: List[Tuple[DataExpression, VariableContext]] = []
         self.target = target
         self.target_obj = target_obj
+        self.is_parse_strict = is_parse_strict
 
     def execute(self, value: Value, variables: VariableContext) -> IsSucceed:
         if isinstance(value, DataExpression):
@@ -119,7 +120,8 @@ class ParseExecutor(Executor):
             if self.last_target_repr_with_var is None:
                 self.last_target_repr_with_var = (value, variables.copy())
         elif isinstance(value, str):
-            value: str
+            if not self.is_parse_strict:
+                value: str = value.strip()
             pos = self.raw_str.find(value)
             if pos == -1:
                 return False
