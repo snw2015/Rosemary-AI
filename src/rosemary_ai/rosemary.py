@@ -26,8 +26,7 @@ def _generate(petal: RosemaryPetal, model_name: str, options: Dict[str, Any],
 
     data = _format(petal, args)
 
-    generator = get_generator(model_name)
-    # TODO if no model name given, use default model defined in petal
+    generator = get_generator(model_name if model_name else petal.default_model_name)
 
     raw_data = generator.generate(data, options, dry_run)
     if dry_run:
@@ -49,8 +48,7 @@ async def _generate_async(petal: RosemaryPetal, model_name: str, options: Dict[s
 
     data = _format(petal, args)
 
-    generator = get_generator(model_name)
-    # TODO if no model name given, use default model defined in petal
+    generator = get_generator(model_name if model_name else petal.default_model_name)
 
     raw_data = await generator.generate_async(data, options, dry_run)
 
@@ -73,8 +71,7 @@ def _generate_stream(petal: RosemaryPetal, model_name: str, options: Dict[str, A
 
     data = _format(petal, args)
 
-    generator = get_generator(model_name)
-    # TODO if no model name given, use default model defined in petal
+    generator = get_generator(model_name if model_name else petal.default_model_name)
 
     succeed = False
     raw_data = None
@@ -102,8 +99,7 @@ async def _generate_stream_async(petal: RosemaryPetal, model_name: str, options:
 
     data = _format(petal, args)
 
-    generator = get_generator(model_name)
-    # TODO if no model name given, use default model defined in petal
+    generator = get_generator(model_name if model_name else petal.default_model_name)
 
     succeed = False
     raw_data = None

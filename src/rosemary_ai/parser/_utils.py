@@ -5,7 +5,7 @@ from .transformer import RmlElement
 RESERVED_ATTR_NAMES = {
     'import': {'path'},
     'template': {'name', 'param', 'var', 'slot'},
-    'petal': {'name', 'param', 'var', 'target'},
+    'petal': {'name', 'param', 'var', 'target', 'model_name'},
     'formatter': set(),
     'parser': {'strict'},
     'img': {'src', 'src_eval'},
