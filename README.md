@@ -158,6 +158,7 @@ Rosemary currently supports the following AI models (more models will be added s
 | OpenAI    | GPT-4             | gpt-4                            |
 | OpenAI    | GPT-4 Turbo       | gpt-4-t / gpt-4-turbo            |
 | OpenAI    | GPT-4o            | gpt-4o                           |
+| OpenAI    | GPT-4o-mini       | gpt-4o-m / gpt-4o-mini           |
 | Anthropic | Claude-3 Haiku    | claude-3-h / claude-3-haiku      |
 | Anthropic | Claude-3 Sonnet   | claude-3-s / claude-3-sonnet     |
 | Anthropic | Claude-3 Opus     | claude-3-o / claude-3-opus       |
