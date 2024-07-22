@@ -1,6 +1,7 @@
 from typing import List, Tuple, TypeAlias, Dict
 
 from ._utils import _check_invalid_attributes, RESERVED_ATTR_NAMES
+from ..exceptions import RmlSyntaxException
 from ..parser.data_expression import VariableContext, DataExpression
 from ..parser.leaf_elements import RosemaryPetal, RosemaryTemplate, RosemaryNamespace
 from ..parser.transformer import RmlElement
@@ -62,11 +63,14 @@ def build_environment(petal, data: VariableContext) -> Environment:
     return Environment(context, slots, namespace)
 
 
-def rml_to_petal(tree: RmlElement, namespace: RosemaryNamespace) -> RosemaryPetal:
+def rml_to_petal(tree: RmlElement, namespace: RosemaryNamespace, src_path: str) -> RosemaryPetal:
     formatter = None
     parser = None
 
     _check_invalid_attributes(tree, RESERVED_ATTR_NAMES['petal'])
+
+    assert 'name' in tree.attributes
+    name = tree.attributes['name']
 
     is_parse_strict = False
 
@@ -82,7 +86,7 @@ def rml_to_petal(tree: RmlElement, namespace: RosemaryNamespace) -> RosemaryPeta
                 is_parse_strict = eval(child.attributes['strict'], {})
             parser = child
         else:
-            raise ValueError(f'Unknown element {child.indicator}')
+            raise RmlSyntaxException(f'Unknown element {child.indicator}', src_path)
     target = None
     if 'target' in tree.attributes:
         target = tree.attributes['target']
@@ -99,7 +103,7 @@ def rml_to_petal(tree: RmlElement, namespace: RosemaryNamespace) -> RosemaryPeta
     if 'model_name' in tree.attributes:
         default_model_name = tree.attributes['model_name']
 
-    return RosemaryPetal(formatter, parser, namespace, parameter_names, target,
+    return RosemaryPetal(name, formatter, parser, namespace, parameter_names, target,
                          tree.attributes['init'] if 'init' in tree.attributes else '{}',
                          is_parse_strict, default_model_name)
 
@@ -129,7 +133,7 @@ def _get_slot_params(str_repr: str) -> Dict[str, List[str]]:
     return slot_params
 
 
-def rml_to_template(tree: RmlElement, namespace: RosemaryNamespace) -> RosemaryTemplate:
+def rml_to_template(tree: RmlElement, namespace: RosemaryNamespace, src_path: str) -> RosemaryTemplate:
     parameter_names = []
 
     _check_invalid_attributes(tree, RESERVED_ATTR_NAMES['template'])

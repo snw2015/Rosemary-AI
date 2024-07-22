@@ -64,6 +64,7 @@ def petal(rosemary_name: str, function_name: str, stream=False,
         add_parameter_to_func(wrapper, 'options', Dict[str, Any])
         add_parameter_to_func(wrapper, 'max_tries', int, 1)
         add_parameter_to_func(wrapper, 'dry_run', bool, False)
+        add_parameter_to_func(wrapper, 'api_key', str, None)
 
         return wrapper
 

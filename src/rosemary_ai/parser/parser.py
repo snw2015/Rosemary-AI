@@ -49,14 +49,14 @@ class RosemaryParser:
                     raise RmlSyntaxException('Petal must have a name', self.src_path)
 
                 try:
-                    namespace.append(child.attributes['name'], rml_to_petal(child, namespace))
+                    namespace.append(child.attributes['name'], rml_to_petal(child, namespace, self.src_path))
                 except Exception as e:
                     raise RmlSyntaxException('Failed to parse petal', self.src_path) from e
             elif child.indicator == ('template',):
                 if 'name' not in child.attributes or not child.attributes['name']:
                     raise RmlSyntaxException('Template must have a name', self.src_path)
                 try:
-                    namespace.append(child.attributes['name'], rml_to_template(child, namespace))
+                    namespace.append(child.attributes['name'], rml_to_template(child, namespace, self.src_path))
                 except Exception as e:
                     raise RmlSyntaxException('Failed to parse template', self.src_path) from e
             else:

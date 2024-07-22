@@ -17,9 +17,10 @@ class RosemaryTemplate:
 
 
 class RosemaryPetal:
-    def __init__(self, formatter_rml: RmlElement, parser_rml: RmlElement, namespace: RosemaryNamespace,
+    def __init__(self, name: str, formatter_rml: RmlElement, parser_rml: RmlElement, namespace: RosemaryNamespace,
                  parameter_names: List[str], target: str, init: str, is_parse_strict: bool,
                  default_model_name: str):
+        self.name = name
         self.formatter_rml = formatter_rml
         self.parser_rml = parser_rml
         self.namespace = namespace
@@ -30,7 +31,7 @@ class RosemaryPetal:
         self.default_model_name = default_model_name
 
     def __str__(self):
-        return f'Rosemary Petal'
+        return f'Rosemary Petal {self.name}'
 
     def __repr__(self):
         return self.__str__()

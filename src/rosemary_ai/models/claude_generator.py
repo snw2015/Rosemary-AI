@@ -1,7 +1,7 @@
-from typing import Generator, Dict, Any, List
+from typing import Generator, Dict, Any, List, Tuple
 
 from ._option_types import CHAT_OPTION_TYPES
-from ._utils import _shape_messages, _update_options
+from ._utils import _shape_messages, _update_options, reform_system_message
 from .._utils._image import _image_to_data_uri  # noqa
 from .generator import AbstractContentGenerator
 from anthropic import Anthropic, NOT_GIVEN, AsyncAnthropic
@@ -9,48 +9,40 @@ from anthropic import Anthropic, NOT_GIVEN, AsyncAnthropic
 from .._logger import LOGGER
 
 
-def _system_prompt_in_messages(messages):
-    return any(message['role'] == 'system' for message in messages)
-
-
-def _reform_system_message(messages):
-    if messages[0]['role'] == 'system':
-        system = messages[0]['content']
-        messages = messages[1:]
-    else:
-        system = NOT_GIVEN
-    if _system_prompt_in_messages(messages):
-        raise NotImplementedError('Only the first message can be a system prompt in Claude.')
-
-    if not messages:
-        raise NotImplementedError('At least one message is required in Claude.')
-
-    return messages, system
-
-
-class ClaudeChatGenerator(AbstractContentGenerator):
+class ClaudeChatGenerator(AbstractContentGenerator[str]):
     def __init__(self, model_name: str):
+        super().__init__('Anthropic')
         self.model_name = model_name
 
-    def generate(self, data: Dict[str, str | List[Dict[str, str | List]]],
-                 options: Dict[str, Any], dry_run: bool) -> str:
+    def _set_up(self, data: Dict[str, str | List[Dict[str, str | List]]],
+                options: Dict[str, Any], dry_run: bool, api_key: str) -> Tuple:
         messages = _shape_messages(data.pop('messages'))
 
         data: Dict[str, List[str]]
         _update_options(options, data, CHAT_OPTION_TYPES)
 
-        LOGGER.info(f'Sending messages to {self.model_name}: "{messages}".')
-        LOGGER.debug(f'Options: {options}.')
+        messages, system = reform_system_message(messages, 'Claude')
+        if system is None:
+            system = NOT_GIVEN
 
-        api_key = options.pop('api_key', None)
+        LOGGER.info(f'Sending messages to {self.model_name}: "{system}", "{messages}".')
+        LOGGER.debug(f'Options: {options}.')
 
         if 'max_tokens' not in options:
             options['max_tokens'] = 4096
 
-        messages, system = _reform_system_message(messages)
-
         if dry_run:
             LOGGER.info('Dry run mode enabled. Skipping API call.')
+
+        api_key = self.get_api_key(api_key)
+
+        return messages, system, options, api_key
+
+    def generate(self, data: Dict[str, str | List[Dict[str, str | List]]],
+                 options: Dict[str, Any], dry_run: bool, api_key: str = None) -> str:
+        messages, system, options, api_key = self._set_up(data, options, dry_run, api_key)
+
+        if dry_run:
             return ''
 
         client = Anthropic(api_key=api_key)
@@ -69,24 +61,10 @@ class ClaudeChatGenerator(AbstractContentGenerator):
         return result
 
     async def generate_async(self, data: Dict[str, str | List[Dict[str, str | List]]],
-                             options: Dict[str, Any], dry_run: bool) -> str:
-        messages = _shape_messages(data.pop('messages'))
-
-        data: Dict[str, List[str]]
-        _update_options(options, data, CHAT_OPTION_TYPES)
-
-        LOGGER.info(f'Sending messages to {self.model_name}: "{messages}".')
-        LOGGER.debug(f'Options: {options}.')
-
-        api_key = options.pop('api_key', None)
-
-        if 'max_tokens' not in options:
-            options['max_tokens'] = 4096
-
-        messages, system = _reform_system_message(messages)
+                             options: Dict[str, Any], dry_run: bool, api_key: str = None) -> str:
+        messages, system, options, api_key = self._set_up(data, options, dry_run, api_key)
 
         if dry_run:
-            LOGGER.info('Dry run mode enabled. Skipping API call.')
             return ''
 
         client = AsyncAnthropic(api_key=api_key)
@@ -105,24 +83,11 @@ class ClaudeChatGenerator(AbstractContentGenerator):
         return result
 
     def generate_stream(self, data: Dict[str, str | List[Dict[str, str | List]]],
-                        options: Dict[str, Any], dry_run: bool) -> Generator[str, None, None]:
-        messages = _shape_messages(data.pop('messages'))
-
-        data: Dict[str, List[str]]
-        _update_options(options, data, CHAT_OPTION_TYPES)
-
-        LOGGER.info(f'Sending messages to {self.model_name}: "{messages}".')
-        LOGGER.debug(f'Options: {options}.')
-
-        api_key = options.pop('api_key', None)
-
-        if 'max_tokens' not in options:
-            options['max_tokens'] = 4096
-
-        messages, system = _reform_system_message(messages)
+                        options: Dict[str, Any],
+                        dry_run: bool, api_key: str = None) -> Generator[str, None, None]:
+        messages, system, options, api_key = self._set_up(data, options, dry_run, api_key)
 
         if dry_run:
-            LOGGER.info('Dry run mode enabled. Skipping API call.')
             return
 
         client = Anthropic(api_key=api_key)
@@ -139,24 +104,11 @@ class ClaudeChatGenerator(AbstractContentGenerator):
                     yield result
 
     async def generate_stream_async(self, data: Dict[str, str | List[Dict[str, str | List]]],
-                                    options: Dict[str, Any], dry_run: bool) -> Generator[str, None, None]:
-        messages = _shape_messages(data.pop('messages'))
-
-        data: Dict[str, List[str]]
-        _update_options(options, data, CHAT_OPTION_TYPES)
-
-        LOGGER.info(f'Sending messages to {self.model_name}: "{messages}".')
-        LOGGER.debug(f'Options: {options}.')
-
-        api_key = options.pop('api_key', None)
-
-        if 'max_tokens' not in options:
-            options['max_tokens'] = 4096
-
-        messages, system = _reform_system_message(messages)
+                                    options: Dict[str, Any],
+                                    dry_run: bool, api_key: str = None) -> Generator[str, None, None]:
+        messages, system, options, api_key = self._set_up(data, options, dry_run, api_key)
 
         if dry_run:
-            LOGGER.info('Dry run mode enabled. Skipping API call.')
             return
 
         client = AsyncAnthropic(api_key=api_key)

@@ -1,6 +1,6 @@
 from typing import Generator, Dict, Any, List, Tuple
 
-from ._option_types import CHAT_OPTION_TYPES, IMAGE_OPTION_TYPES
+from ._option_types import CHAT_OPTION_TYPES, GPT_IMAGE_OPTION_TYPES
 from ._utils import _shape_messages, _update_options
 from .._utils._image import _image_to_data_uri  # noqa
 from .generator import AbstractContentGenerator
@@ -11,10 +11,11 @@ from .._logger import LOGGER
 
 class GPTChatGenerator(AbstractContentGenerator[str]):
     def __init__(self, model_name: str):
+        super().__init__('OpenAI')
         self.model_name = model_name
 
     def _set_up(self, data: Dict[str, str | List[Dict[str, str | List]]],
-                options: Dict[str, Any], dry_run: bool) -> Tuple:
+                options: Dict[str, Any], dry_run: bool, api_key: str) -> Tuple:
         messages = _shape_messages(data.pop('messages'))
 
         data: Dict[str, List[str]]
@@ -23,16 +24,16 @@ class GPTChatGenerator(AbstractContentGenerator[str]):
         LOGGER.info(f'Sending messages to {self.model_name}: "{messages}".')
         LOGGER.debug(f'Options: {options}.')
 
-        api_key = options.pop('api_key', None)
-
         if dry_run:
             LOGGER.info('Dry run mode enabled. Skipping API call.')
+
+        api_key = self.get_api_key(api_key)
 
         return messages, options, api_key
 
     def generate(self, data: Dict[str, str | List[Dict[str, str | List]]],
-                 options: Dict[str, Any], dry_run: bool) -> str:
-        messages, options, api_key = self._set_up(data, options, dry_run)
+                 options: Dict[str, Any], dry_run: bool, api_key: str = None) -> str:
+        messages, options, api_key = self._set_up(data, options, dry_run, api_key)
 
         if dry_run:
             return ''
@@ -49,8 +50,8 @@ class GPTChatGenerator(AbstractContentGenerator[str]):
         return result
 
     async def generate_async(self, data: Dict[str, str | List[Dict[str, str | List]]],
-                             options: Dict[str, Any], dry_run: bool) -> str:
-        messages, options, api_key = self._set_up(data, options, dry_run)
+                             options: Dict[str, Any], dry_run: bool, api_key: str = None) -> str:
+        messages, options, api_key = self._set_up(data, options, dry_run, api_key)
 
         if dry_run:
             return ''
@@ -67,8 +68,9 @@ class GPTChatGenerator(AbstractContentGenerator[str]):
         return result
 
     def generate_stream(self, data: Dict[str, str | List[Dict[str, str | List]]],
-                        options: Dict[str, Any], dry_run: bool) -> Generator[str, None, None]:
-        messages, options, api_key = self._set_up(data, options, dry_run)
+                        options: Dict[str, Any],
+                        dry_run: bool, api_key: str = None) -> Generator[str, None, None]:
+        messages, options, api_key = self._set_up(data, options, dry_run, api_key)
 
         if dry_run:
             return
@@ -89,8 +91,9 @@ class GPTChatGenerator(AbstractContentGenerator[str]):
                 yield result
 
     async def generate_stream_async(self, data: Dict[str, str | List[Dict[str, str | List]]],
-                                    options: Dict[str, Any], dry_run: bool) -> Generator[str, None, None]:
-        messages, options, api_key = self._set_up(data, options, dry_run)
+                                    options: Dict[str, Any],
+                                    dry_run: bool, api_key: str = None) -> Generator[str, None, None]:
+        messages, options, api_key = self._set_up(data, options, dry_run, api_key)
 
         if dry_run:
             return
@@ -113,30 +116,31 @@ class GPTChatGenerator(AbstractContentGenerator[str]):
 
 class GPTImageGenerator(AbstractContentGenerator[str]):
     def __init__(self, model_name: str):
+        super().__init__('OpenAI')
         self.model_name = model_name
 
     def _set_up(self, data: Dict[str, str | List[Dict[str, str | List]]],
-                options: Dict[str, Any], dry_run: bool) -> Tuple:
+                options: Dict[str, Any], dry_run: bool, api_key: str) -> Tuple:
         prompt = data.pop('prompt')
         if isinstance(prompt, list):
             prompt = ''.join(prompt)
 
         data: Dict[str, List[str]]
-        _update_options(options, data, IMAGE_OPTION_TYPES)
+        _update_options(options, data, GPT_IMAGE_OPTION_TYPES)
 
         LOGGER.info(f'Sending prompt to {self.model_name}: "{prompt}".')
         LOGGER.debug(f'Options: {options}.')
 
-        api_key = options.pop('api_key', None)
-
         if dry_run:
             LOGGER.info('Dry run mode enabled. Skipping API call.')
+
+        api_key = self.get_api_key(api_key)
 
         return prompt, options, api_key
 
     def generate(self, data: Dict[str, str | List[str]],
-                 options: Dict[str, Any], dry_run: bool) -> str:
-        prompt, options, api_key = self._set_up(data, options, dry_run)
+                 options: Dict[str, Any], dry_run: bool, api_key: str = None) -> str:
+        prompt, options, api_key = self._set_up(data, options, dry_run, api_key)
 
         if dry_run:
             return ''
@@ -154,8 +158,8 @@ class GPTImageGenerator(AbstractContentGenerator[str]):
         return result
 
     async def generate_async(self, data: Dict[str, str | List[Dict[str, str | List]]],
-                             options: Dict[str, Any], dry_run: bool) -> str:
-        prompt, options, api_key = self._set_up(data, options, dry_run)
+                             options: Dict[str, Any], dry_run: bool, api_key: str = None) -> str:
+        prompt, options, api_key = self._set_up(data, options, dry_run, api_key)
 
         if dry_run:
             return ''
@@ -173,9 +177,11 @@ class GPTImageGenerator(AbstractContentGenerator[str]):
         return result
 
     def generate_stream(self, data: Dict[str, str | List[Dict[str, str | List]]],
-                        options: Dict[str, Any], dry_run: bool) -> Generator[str, None, None]:
+                        options: Dict[str, Any],
+                        dry_run: bool, api_key: str = None) -> Generator[str, None, None]:
         raise NotImplementedError('Stream generation is not supported for image generation.')
 
     async def generate_stream_async(self, data: Dict[str, str | List[Dict[str, str | List]]],
-                                    options: Dict[str, Any], dry_run: bool) -> Generator[str, None, None]:
+                                    options: Dict[str, Any],
+                                    dry_run: bool, api_key: str = None) -> Generator[str, None, None]:
         raise NotImplementedError('Stream generation is not supported for image generation.')
