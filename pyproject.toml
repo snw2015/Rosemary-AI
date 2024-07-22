@@ -10,9 +10,6 @@ description = "A Template Engine For LLMs and Generative AIs"
 readme = "README_PYPI.md"
 requires-python = ">=3.10"
 
-[project.urls]
-Repository = "https://github.com/snw2015/Rosemary-AI"
-
 classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: MIT License",
@@ -25,6 +22,9 @@ dependencies = [
     "anthropic",
     "cohere"
 ]
+
+[project.urls]
+Repository = "https://github.com/snw2015/Rosemary-AI"
 
 [tool.hatch.build.targets.sdist]
 include = [
