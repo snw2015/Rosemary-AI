@@ -1,10 +1,9 @@
-import inspect
 import typing
 from inspect import Signature
 from typing import Callable, Dict, Any, Tuple, Generator
 
 from ._logger import LOGGER
-from .exceptions import ParsingFailedException
+from .exceptions import ParsingFailedException, RmlFormatException
 from .models.generator_registry import get_generator
 from .parser.executor import FormatExecutor, ParseExecutor
 from .parser.leaf_elements import RosemaryPetal
@@ -178,16 +177,26 @@ def _format(petal: RosemaryPetal, data: Dict[str, Any]) -> Any:
     if petal.formatter_rml is None:
         return data
 
-    if petal.parameter_names:
-        data = {name: None for name in petal.parameter_names} | data
+    received_names = set(data.keys())
+    expected_names = set(petal.parameter_names) | {'self'}
 
-    env = build_environment(petal, data.copy())
+    names_only_in_data = received_names - expected_names
+    for name in names_only_in_data:
+        LOGGER.warning(f'Argument "{name}" is not used in the petal "{petal.name}", will be ignored.')
+
+    names_only_in_petal = set(petal.parameter_names) - received_names
+    for name in names_only_in_petal:
+        LOGGER.warning(f'Argument "{name}" is not given, will be set to None.')
+
+    data_with_default = {name: data[name] if name in data else None for name in expected_names}
+
+    env = build_environment(petal, data_with_default)
     executor = FormatExecutor()
 
     succeed = traverse_all(env, petal.formatter_rml.children, executor)
 
     if not succeed:
-        raise ValueError('Failed to format')
+        raise RmlFormatException('Failed to format')
 
     return executor.get_result()
 
@@ -270,7 +279,6 @@ class Rosemary:
                     return result
 
                 raise ParsingFailedException(f'Failed to parse from the model response after {max_tries} tries.')
-
 
         else:
 
