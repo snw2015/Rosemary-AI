@@ -26,7 +26,8 @@
             <dict>
                 <dict-item key="prompt">
                     <if cond="strict">
-                        I NEED to test how the tool works with extremely simple prompts. DO NOT add any detail, just use it AS-IS:
+                        I NEED to test how the tool works with extremely simple prompts. DO NOT add any detail, just use
+                        it AS-IS:
                     </if>
                     <prompt/>
                 </dict-item>
@@ -36,4 +37,43 @@
             </dict>
         </template>
     </corolla>
+</corolla>
+
+<corolla name="image">
+    <template name="sd-v2" param="negative_prompt, aspect_ratio, output_format" slot="@prompt">
+        <dict>
+            <dict-item key="prompt">
+                <prompt/>
+            </dict-item>
+            <_utils.option name="'negative_prompt'" value="negative_prompt"/>
+            <_utils.option name="'aspect_ratio'" value="aspect_ratio"/>
+            <_utils.option name="'output_format'" value="output_format"/>
+        </dict>
+    </template>
+
+    <template name="sd-v1" param="height, width, style_preset" slot="prompt(weight)">
+        <dict>
+            <dict-item key="prompts">
+                <list>
+                    <for slot="prompt">
+                        <list-item>
+                            <dict>
+                                <dict-item key="text">
+                                    <prompt/>
+                                </dict-item>
+                                <if cond="weight is not None">
+                                    <dict-item key="weight">
+                                        {weight}
+                                    </dict-item>
+                                </if>
+                            </dict>
+                        </list-item>
+                    </for>
+                </list>
+            </dict-item>
+            <_utils.option name="'height'" value="height"/>
+            <_utils.option name="'width'" value="width"/>
+            <_utils.option name="'style_preset'" value="style_preset"/>
+        </dict>
+    </template>
 </corolla>

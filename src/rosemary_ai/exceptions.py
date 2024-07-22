@@ -21,3 +21,8 @@ class ExecutionException(Exception):
 class ParsingFailedException(Exception):
     def __init__(self, message):
         super().__init__(message)
+
+
+class RequestFailedException(Exception):
+    def __init__(self, response):
+        super().__init__(response.text)
