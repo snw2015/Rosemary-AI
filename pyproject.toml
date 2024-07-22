@@ -22,7 +22,8 @@ classifiers = [
 dependencies = [
     "openai",
     "lark",
-    "anthropic"
+    "anthropic",
+    "cohere"
 ]
 
 [tool.hatch.build.targets.sdist]

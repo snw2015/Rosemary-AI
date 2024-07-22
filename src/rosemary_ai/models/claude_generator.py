@@ -1,7 +1,7 @@
 from typing import Generator, Dict, Any, List
 
 from ._option_types import CHAT_OPTION_TYPES
-from ._utils import _shape_messages, _update_options
+from ._utils import _shape_messages, _update_options, reform_system_message
 from .._utils._image import _image_to_data_uri  # noqa
 from .generator import AbstractContentGenerator
 from anthropic import Anthropic, NOT_GIVEN, AsyncAnthropic
@@ -9,26 +9,7 @@ from anthropic import Anthropic, NOT_GIVEN, AsyncAnthropic
 from .._logger import LOGGER
 
 
-def _system_prompt_in_messages(messages):
-    return any(message['role'] == 'system' for message in messages)
-
-
-def _reform_system_message(messages):
-    if messages[0]['role'] == 'system':
-        system = messages[0]['content']
-        messages = messages[1:]
-    else:
-        system = NOT_GIVEN
-    if _system_prompt_in_messages(messages):
-        raise NotImplementedError('Only the first message can be a system prompt in Claude.')
-
-    if not messages:
-        raise NotImplementedError('At least one message is required in Claude.')
-
-    return messages, system
-
-
-class ClaudeChatGenerator(AbstractContentGenerator):
+class ClaudeChatGenerator(AbstractContentGenerator[str]):
     def __init__(self, model_name: str):
         self.model_name = model_name
 
@@ -39,15 +20,17 @@ class ClaudeChatGenerator(AbstractContentGenerator):
         data: Dict[str, List[str]]
         _update_options(options, data, CHAT_OPTION_TYPES)
 
-        LOGGER.info(f'Sending messages to {self.model_name}: "{messages}".')
+        messages, system = reform_system_message(messages, 'Claude')
+        if system is None:
+            system = NOT_GIVEN
+
+        LOGGER.info(f'Sending messages to {self.model_name}: "{system}", "{messages}".')
         LOGGER.debug(f'Options: {options}.')
 
         api_key = options.pop('api_key', None)
 
         if 'max_tokens' not in options:
             options['max_tokens'] = 4096
-
-        messages, system = _reform_system_message(messages)
 
         if dry_run:
             LOGGER.info('Dry run mode enabled. Skipping API call.')
@@ -75,15 +58,17 @@ class ClaudeChatGenerator(AbstractContentGenerator):
         data: Dict[str, List[str]]
         _update_options(options, data, CHAT_OPTION_TYPES)
 
-        LOGGER.info(f'Sending messages to {self.model_name}: "{messages}".')
+        messages, system = reform_system_message(messages, 'Claude')
+        if system is None:
+            system = NOT_GIVEN
+
+        LOGGER.info(f'Sending messages to {self.model_name}: "{system}", "{messages}".')
         LOGGER.debug(f'Options: {options}.')
 
         api_key = options.pop('api_key', None)
 
         if 'max_tokens' not in options:
             options['max_tokens'] = 4096
-
-        messages, system = _reform_system_message(messages)
 
         if dry_run:
             LOGGER.info('Dry run mode enabled. Skipping API call.')
@@ -111,15 +96,17 @@ class ClaudeChatGenerator(AbstractContentGenerator):
         data: Dict[str, List[str]]
         _update_options(options, data, CHAT_OPTION_TYPES)
 
-        LOGGER.info(f'Sending messages to {self.model_name}: "{messages}".')
+        messages, system = reform_system_message(messages, 'Claude')
+        if system is None:
+            system = NOT_GIVEN
+
+        LOGGER.info(f'Sending messages to {self.model_name}: "{system}", "{messages}".')
         LOGGER.debug(f'Options: {options}.')
 
         api_key = options.pop('api_key', None)
 
         if 'max_tokens' not in options:
             options['max_tokens'] = 4096
-
-        messages, system = _reform_system_message(messages)
 
         if dry_run:
             LOGGER.info('Dry run mode enabled. Skipping API call.')
@@ -145,15 +132,17 @@ class ClaudeChatGenerator(AbstractContentGenerator):
         data: Dict[str, List[str]]
         _update_options(options, data, CHAT_OPTION_TYPES)
 
-        LOGGER.info(f'Sending messages to {self.model_name}: "{messages}".')
+        messages, system = reform_system_message(messages, 'Claude')
+        if system is None:
+            system = NOT_GIVEN
+
+        LOGGER.info(f'Sending messages to {self.model_name}: "{system}", "{messages}".')
         LOGGER.debug(f'Options: {options}.')
 
         api_key = options.pop('api_key', None)
 
         if 'max_tokens' not in options:
             options['max_tokens'] = 4096
-
-        messages, system = _reform_system_message(messages)
 
         if dry_run:
             LOGGER.info('Dry run mode enabled. Skipping API call.')

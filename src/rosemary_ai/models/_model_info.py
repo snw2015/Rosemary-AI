@@ -23,6 +23,15 @@ CLAUDE = {
     'claude-3-opus-20240229': ['claude-3-o', 'claude-3-opus']
 }
 
+COMMAND = {
+    'command-r-plus': ['command-r-p', 'command-r-plus'],
+    'command-r': ['command-r'],
+    'command': ['command'],
+    'command-nightly': ['command-n', 'command-nightly'],
+    'command-light': ['command-l', 'command-light'],
+    'command-light-nightly': ['command-ln', 'command-light-nightly'],
+}
+
 # image generation models
 # register_generator('dall-e-3', GPTImageGenerator('dall-e-3'))
 

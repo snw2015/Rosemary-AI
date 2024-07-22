@@ -3,6 +3,7 @@ from typing import List
 from . import _model_info
 
 from .claude_generator import ClaudeChatGenerator
+from .cohere_generator import CohereChatGenerator
 from .generator import AbstractContentGenerator
 from .gpt_generator import GPTChatGenerator, GPTImageGenerator
 
@@ -32,11 +33,20 @@ def generator_list() -> list[str]:
     return list(_MODEL_GENERATORS.keys())
 
 
+# OpenAI
 for model_name, in_lib_names in _model_info.GPT.items():
     register_generator(in_lib_names, GPTChatGenerator(model_name))
 
+for model_name, in_lib_names in _model_info.DALL_E.items():
+    register_generator(in_lib_names, GPTImageGenerator(model_name))
+
+
+# Anthropic
 for model_name, in_lib_names in _model_info.CLAUDE.items():
     register_generator(in_lib_names, ClaudeChatGenerator(model_name))
 
-for model_name, in_lib_names in _model_info.DALL_E.items():
-    register_generator(in_lib_names, GPTImageGenerator(model_name))
+
+# Cohere
+for model_name, in_lib_names in _model_info.COMMAND.items():
+    register_generator(in_lib_names, CohereChatGenerator(model_name))
+

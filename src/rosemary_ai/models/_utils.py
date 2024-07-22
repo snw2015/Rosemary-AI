@@ -45,3 +45,22 @@ def _update_options(options: Dict[str, Any], new_options: Dict[str, List[str]], 
             if key in option_types:
                 value = option_types[key](value)
             options[key] = value
+
+
+def _system_prompt_in_messages(messages):
+    return any(message['role'] == 'system' for message in messages)
+
+
+def reform_system_message(messages, provider: str):
+    if messages[0]['role'] == 'system':
+        system = messages[0]['content']
+        messages = messages[1:]
+    else:
+        system = None
+    if _system_prompt_in_messages(messages):
+        raise NotImplementedError(f'Only the first message can be a system prompt in {provider}.')
+
+    if not messages:
+        raise NotImplementedError(f'At least one message is required in Claude {provider}.')
+
+    return messages, system

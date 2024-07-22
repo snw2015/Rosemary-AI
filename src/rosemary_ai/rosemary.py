@@ -81,6 +81,10 @@ def _generate_stream(petal: RosemaryPetal, model_name: str, options: Dict[str, A
 
             yield target_obj
     else:
+        # For logging purpose
+        for _ in generator.generate_stream(data, options, dry_run):
+            pass
+
         for raw_data in dry_run_generator:
             target_obj, succeed = _parse(petal, args, raw_data, target_obj)
 
@@ -109,6 +113,10 @@ async def _generate_stream_async(petal: RosemaryPetal, model_name: str, options:
 
             yield target_obj
     else:
+        # For logging purpose
+        async for _ in generator.generate_stream_async(data, options, dry_run):
+            pass
+
         async for raw_data in dry_run_generator:
             target_obj, succeed = _parse(petal, args, raw_data, target_obj)
 
