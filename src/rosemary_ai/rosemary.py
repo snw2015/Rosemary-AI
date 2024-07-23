@@ -3,6 +3,8 @@ from inspect import Signature
 from typing import Callable, Dict, Any, Tuple, Generator
 
 from ._logger import LOGGER
+from ._utils.dict_utils import options_with_default
+from ._utils.typing_utils import isinstance_
 from .exceptions import ParsingFailedException, RmlFormatException
 from .models.generator_registry import get_generator
 from .parser.executor import FormatExecutor, ParseExecutor
@@ -11,7 +13,7 @@ from .parser.environment import build_environment
 from .parser.traverse import traverse_all
 from .parser.namespace import Namespace
 from .parser.parser import RosemaryParser
-from ._utils._str_utils import full_name_to_indicator  # noqa
+from ._utils.str_utils import full_name_to_indicator  # noqa
 
 _EMPTY = Signature.empty
 _MAX_TRIES = 1000
@@ -130,22 +132,13 @@ async def _generate_stream_async(petal: RosemaryPetal, model_name: str, options:
         raise ParsingFailedException(f'Failed to parse from the model response: {raw_data}')
 
 
-def _isinstance(obj, type_):
-    if isinstance(type_, str):
-        return obj.__class__.__name__ == type_
-    elif typing.get_origin(type_) is None:
-        return isinstance(obj, type_)
-    else:
-        return isinstance(obj, typing.get_origin(type_))
-
-
 def _print_unsupported_types_hint(signatures: Signature):
     for type_ in (*[param.annotation for param in signatures.parameters.values()], signatures.return_annotation):
         if type_ is _EMPTY:
             continue
 
         try:
-            _isinstance('', type_)
+            isinstance_('', type_)
         except TypeError:
             LOGGER.info(f'Type check of type "{type_}" is not supported yet.')
 
@@ -168,21 +161,21 @@ def _fill_args(kwargs: Dict[str, Any], signature: Signature, args: Tuple[Any]) -
                             f'Argument {param.name} without default value is not given. Will use None.')
 
                 try:
-                    if param.annotation is not _EMPTY and not _isinstance(kwargs[param.name], param.annotation):
+                    if param.annotation is not _EMPTY and not isinstance_(kwargs[param.name], param.annotation):
                         LOGGER.warning(f'Argument "{param.name}" has value "{repr(kwargs[param.name])}",'
                                        f' which is not of type {param.annotation}.')
                 except TypeError:
-                    pass
+                    LOGGER.info(f'Type check of type "{param.annotation}" is not supported yet.')
 
     return kwargs
 
 
 def _check_return_type(result, type_):
     try:
-        if type_ is not _EMPTY and not _isinstance(result, type_):
+        if type_ is not _EMPTY and not isinstance_(result, type_):
             LOGGER.warning(f'Generated result "{repr(result)}" is not of type {type_}.')
     except TypeError:
-        pass
+        LOGGER.info(f'Type check of type "{type_}" is not supported yet.')
 
 
 def _format(petal: RosemaryPetal, data: Dict[str, Any]) -> Any:
@@ -246,23 +239,22 @@ class Rosemary:
                      model_name: str = None, options: Dict[str, Any] = None,
                      dry_run_val=None, is_async: bool = False) -> Callable:
         petal = self.namespace.get_by_indicator(full_name_to_indicator(function_name))
-        model_name_ = model_name
-        options_ = options
+        default_model_name = model_name
+        default_options = options
 
         _print_unsupported_types_hint(signature)
 
-        def __set_up(kwargs: Dict[str, Any], args: Tuple[Any], options: Dict[str, Any], max_tries: int) -> Tuple:
+        def __set_up(kwargs: Dict[str, Any], args: Tuple[Any], options_: Dict[str, Any], max_tries: int) -> Tuple:
             full_args = _fill_args(kwargs, signature, args)
 
-            if options is None:
-                options = options_
+            options_ = options_with_default(options_, default_options)
 
             inf_tries = False
             if max_tries < 0 or max_tries > _MAX_TRIES:
                 max_tries = _MAX_TRIES
                 inf_tries = True
 
-            return full_args, options, max_tries, inf_tries
+            return full_args, options_, max_tries, inf_tries
 
         def __handle_exception(e: ParsingFailedException, time_try: int, max_tries: int, inf_tries: bool):
             LOGGER.info(str(e))
@@ -273,14 +265,14 @@ class Rosemary:
                     LOGGER.info(f'Retrying... ({time_try + 2}/{max_tries})')
 
         if is_async:
-            async def func(*args, target_obj=None, model_name: str = model_name_, options=None,
+            async def func(*args, target_obj=None, model_name: str = default_model_name, options=None,
                            max_tries: int = 1, dry_run: bool = False, api_key: str = None,
                            **kwargs) -> Any:
-                full_args, options, max_tries, inf_tries = __set_up(kwargs, args, options, max_tries)
+                full_args, options_, max_tries, inf_tries = __set_up(kwargs, args, options, max_tries)
 
                 for time_try in range(max_tries):
                     try:
-                        result = await _generate_async(petal, model_name, options, dry_run,
+                        result = await _generate_async(petal, model_name, options_, dry_run,
                                                        dry_run_val, target_obj, full_args, api_key)
                     except ParsingFailedException as e:
                         __handle_exception(e, time_try, max_tries, inf_tries)
@@ -294,14 +286,14 @@ class Rosemary:
 
         else:
 
-            def func(*args, target_obj=None, model_name: str = model_name_, options=None,
+            def func(*args, target_obj=None, model_name: str = default_model_name, options=None,
                      max_tries: int = 1, dry_run: bool = False, api_key: str = None,
                      **kwargs) -> Any:
-                full_args, options, max_tries, inf_tries = __set_up(kwargs, args, options, max_tries)
+                full_args, options_, max_tries, inf_tries = __set_up(kwargs, args, options, max_tries)
 
                 for time_try in range(max_tries):
                     try:
-                        result = _generate(petal, model_name, options, dry_run, dry_run_val,
+                        result = _generate(petal, model_name, options_, dry_run, dry_run_val,
                                            target_obj, full_args, api_key)
                     except ParsingFailedException as e:
                         __handle_exception(e, time_try, max_tries, inf_tries)
@@ -320,8 +312,8 @@ class Rosemary:
                             dry_run_generator: Generator = None,
                             is_async: bool = False) -> Callable:
         petal = self.namespace.get_by_indicator(full_name_to_indicator(function_name))
-        model_name_ = model_name
-        options_ = options
+        default_model_name = model_name
+        default_options = options
 
         _print_unsupported_types_hint(signature)
 
@@ -334,24 +326,23 @@ class Rosemary:
             else:
                 LOGGER.warning(f'Return type "{annotation}" of "{function_name}" is not a generator type.')
 
-        def __set_up(kwargs: Dict[str, Any], args: Tuple[Any], options: Dict[str, Any], max_tries: int) -> Tuple:
+        def __set_up(kwargs: Dict[str, Any], args: Tuple[Any], options_: Dict[str, Any], max_tries: int) -> Tuple:
+            full_args = _fill_args(kwargs, signature, args)
+
+            options_ = options_with_default(options_, default_options)
+
             if max_tries != 1:
                 LOGGER.warning('max_tries is not supported in stream mode. Will only try once.')
 
-            full_args = _fill_args(kwargs, signature, args)
-
-            if options is None:
-                options = options_
-
-            return full_args, options
+            return full_args, options_
 
         if is_async:
-            async def func(*args, target_obj=None, model_name: str = model_name_, options=None,
+            async def func(*args, target_obj=None, model_name: str = default_model_name, options=None,
                            max_tries: int = 1, dry_run: bool = False, api_key: str = None,
                            **kwargs) -> (Generator[Any, None, None]):
-                full_args, options = __set_up(kwargs, args, options, max_tries)
+                full_args, options_ = __set_up(kwargs, args, options, max_tries)
 
-                async for data in _generate_stream_async(petal, model_name, options,
+                async for data in _generate_stream_async(petal, model_name, options_,
                                                          dry_run, dry_run_generator,
                                                          target_obj, full_args, api_key):
                     if data_type:
@@ -359,12 +350,12 @@ class Rosemary:
 
                     yield data
         else:
-            def func(*args, target_obj=None, model_name: str = model_name_, options=None,
+            def func(*args, target_obj=None, model_name: str = default_model_name, options=None,
                      max_tries: int = 1, dry_run: bool = False, api_key: str = None,
                      **kwargs) -> (Generator[Any, None, None]):
-                full_args, options = __set_up(kwargs, args, options, max_tries)
+                full_args, options_ = __set_up(kwargs, args, options, max_tries)
 
-                for data in _generate_stream(petal, model_name, options,
+                for data in _generate_stream(petal, model_name, options_,
                                              dry_run, dry_run_generator,
                                              target_obj, full_args, api_key):
                     if data_type:

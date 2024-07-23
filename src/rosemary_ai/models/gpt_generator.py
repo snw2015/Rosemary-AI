@@ -1,8 +1,8 @@
 from typing import Generator, Dict, Any, List, Tuple
 
 from ._option_types import CHAT_OPTION_TYPES, GPT_IMAGE_OPTION_TYPES
-from ._utils import _shape_messages, _update_options
-from .._utils._image import _image_to_data_uri  # noqa
+from ._utils import shape_messages, update_options
+from ..exceptions import RmlFormatException
 from .generator import AbstractContentGenerator
 from openai import OpenAI, AsyncOpenAI
 
@@ -16,10 +16,10 @@ class GPTChatGenerator(AbstractContentGenerator[str]):
 
     def _set_up(self, data: Dict[str, str | List[Dict[str, str | List]]],
                 options: Dict[str, Any], dry_run: bool, api_key: str) -> Tuple:
-        messages = _shape_messages(data.pop('messages'))
+        messages = shape_messages(data.pop('messages'))
 
         data: Dict[str, List[str]]
-        _update_options(options, data, CHAT_OPTION_TYPES)
+        update_options(options, data, CHAT_OPTION_TYPES)
 
         LOGGER.info(f'Sending messages to {self.model_name}: "{messages}".')
         LOGGER.debug(f'Options: {options}.')
@@ -41,7 +41,7 @@ class GPTChatGenerator(AbstractContentGenerator[str]):
         client = OpenAI(api_key=api_key)
         completion = client.chat.completions.create(
             model=self.model_name, messages=messages,
-            **options)  # type: ignore
+            **options)
 
         LOGGER.info(f'Received response from {self.model_name}: "{completion.choices[0].message}".')
 
@@ -59,7 +59,7 @@ class GPTChatGenerator(AbstractContentGenerator[str]):
         client = AsyncOpenAI(api_key=api_key)
         completion = await client.chat.completions.create(
             model=self.model_name, messages=messages,
-            **options)  # type: ignore
+            **options)
 
         LOGGER.info(f'Received response from {self.model_name}: "{completion.choices[0].message}".')
 
@@ -78,7 +78,7 @@ class GPTChatGenerator(AbstractContentGenerator[str]):
         client = OpenAI(api_key=api_key)
         completion_stream = client.chat.completions.create(model=self.model_name, messages=messages,
                                                            **options,
-                                                           stream=True)  # type: ignore
+                                                           stream=True)
 
         result = ''
 
@@ -101,7 +101,7 @@ class GPTChatGenerator(AbstractContentGenerator[str]):
         client = AsyncOpenAI(api_key=api_key)
         completion_stream = await client.chat.completions.create(model=self.model_name, messages=messages,
                                                                  **options,
-                                                                 stream=True)  # type: ignore
+                                                                 stream=True)
 
         result = ''
 
@@ -123,10 +123,10 @@ class GPTImageGenerator(AbstractContentGenerator[str]):
                 options: Dict[str, Any], dry_run: bool, api_key: str) -> Tuple:
         prompt = data.pop('prompt')
         if isinstance(prompt, list):
-            prompt = ''.join(prompt)
+            raise RmlFormatException('Prompt must only contain string.')
 
         data: Dict[str, List[str]]
-        _update_options(options, data, GPT_IMAGE_OPTION_TYPES)
+        update_options(options, data, GPT_IMAGE_OPTION_TYPES)
 
         LOGGER.info(f'Sending prompt to {self.model_name}: "{prompt}".')
         LOGGER.debug(f'Options: {options}.')
@@ -149,7 +149,7 @@ class GPTImageGenerator(AbstractContentGenerator[str]):
         image = client.images.generate(
             model=self.model_name, prompt=prompt,
             **options
-        )  # type: ignore
+        )
 
         LOGGER.info(f'Received response from {self.model_name}: "{image.data}".')
 
@@ -168,7 +168,7 @@ class GPTImageGenerator(AbstractContentGenerator[str]):
         image = await client.images.generate(
             model=self.model_name, prompt=prompt,
             **options
-        )  # type: ignore
+        )
 
         LOGGER.info(f'Received response from {self.model_name}: "{image.data}".')
 

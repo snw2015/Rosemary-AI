@@ -1,4 +1,5 @@
 import inspect
+import typing
 from typing import Callable
 
 
@@ -10,3 +11,12 @@ def add_parameter_to_func(f: Callable, param_name: str, param_type, default_valu
     new_signature = signature.replace(parameters=parameters)
 
     f.__signature__ = new_signature
+
+
+def isinstance_(obj, type_):
+    if isinstance(type_, str):
+        return obj.__class__.__name__ == type_
+    elif typing.get_origin(type_) is None:
+        return isinstance(obj, type_)
+    else:
+        return isinstance(obj, typing.get_origin(type_))

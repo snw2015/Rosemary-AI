@@ -1,5 +1,5 @@
 from .._logger import LOGGER
-from .._utils._str_utils import did_you_mean  # noqa
+from .._utils.str_utils import did_you_mean  # noqa
 from .transformer import RmlElement
 
 RESERVED_ATTR_NAMES = {

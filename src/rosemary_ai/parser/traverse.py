@@ -10,7 +10,7 @@ from .environment import Slot, Environment
 from .transformer import RmlElement, TextToken
 
 from ._utils import RESERVED_ATTR_NAMES, _check_invalid_attributes
-from .._utils._str_utils import did_you_mean  # noqa
+from .._utils.str_utils import did_you_mean  # noqa
 
 
 def _eval(repr_, context, need_copy=True):
