@@ -6,9 +6,10 @@ Rosemary is a template engine and prompt executor designed especially for genera
 image generations and more.
 
 The core concept of Rosemary is to treat the interaction with AIs as some functions. By encapsulating the data handling
-and AI model execution, you can then build any system you want just like building any other software system. The most noticeable
+and AI model execution, you can then build any system you want just like building any other software system. The most
+noticeable
 effect is that you can completely separate the prompt-design part from other business logic in the system, just like
-you separating front-end code fron the back-end side in a web appilication.
+you separating front-end code from the back-end side in a web application.
 
 The ultimate goal of rosemary is to provide a novel way to achieve an AI-based system: efficient, flexible, minimum
 AI-specific knowledge required, and easy to visualize and debug.
@@ -35,6 +36,7 @@ You are a good fit for Rosemary if you:
 - **Modular** - Manage all your templates in separate files, and use namespaces to keep them organized.
 - **Streaming** - Streaming support for building real-time applications.
 - **Multi-modal** - Multi-modal support, including text, image, and more.
+- **AsyncIO** - AsyncIO support for building high-performance applications.
 
 ## Quick Start
 
@@ -74,11 +76,11 @@ with the following content:
 
 <petal name="hello" param="name">
     <formatter>
-        <gpt.chat>
+        <text.chat>
             <message role="'system'">
                 Say "Hello, {name}!"
             </message>
-        </gpt.chat>
+        </text.chat>
     </formatter>
 </petal>
 ```
@@ -88,7 +90,7 @@ returns a message "Hello, {name}!". Of course, the message will actually be gene
 
 The `<formatter>` tag tells Rosemary how to use the input variable to create the message sent to the AI model. To send
 the message to GPT, a specific form of data is required. However, Rosemary provides a set of build-in templates which
-can save you from writing the data format manually. In this case, we use the `<gpt.chat>` template to format the
+can save you from writing the data format manually. In this case, we use the `<text.chat>` template to format the
 message.
 
 ### Load Templates
@@ -135,7 +137,7 @@ print(hello('Alice'))
 
 > If you haven't set the `OPENAI_API_KEY` environment variable, you can set it in the code now:
 > ```python
-> print(hello('Alice', options={'api_key': your_api_key}))
+> print(hello('Alice', api_key=your_api_key))
 > ```
 
 If you run the `main.py` file, you will probably see the output "Hello, Alice!". Sometimes it may generate a different
@@ -152,22 +154,41 @@ the [official wiki](https://github.com/snw2015/Rosemary-AI/wiki)
 Rosemary currently supports the following AI models (more models will be added soon!):
 
 ### Chat Completion
-| Provider  | Model             | In-package Model Name            |
-|-----------|-------------------|----------------------------------|
-| OpenAI    | GPT-3.5 Turbo     | gpt-3.5-t / gpt-3.5-turbo        |
-| OpenAI    | GPT-4             | gpt-4                            |
-| OpenAI    | GPT-4 Turbo       | gpt-4-t / gpt-4-turbo            |
-| OpenAI    | GPT-4o            | gpt-4o                           |
-| OpenAI    | GPT-4o-mini       | gpt-4o-m / gpt-4o-mini           |
-| Anthropic | Claude-3 Haiku    | claude-3-h / claude-3-haiku      |
-| Anthropic | Claude-3 Sonnet   | claude-3-s / claude-3-sonnet     |
-| Anthropic | Claude-3 Opus     | claude-3-o / claude-3-opus       |
-| Anthropic | Claude-3.5 Sonnet | claude-3.5-s / claude-3.5-sonnet |
+
+| Provider  | Model                 | In-package Model Name              |
+|-----------|-----------------------|------------------------------------|
+| OpenAI    | GPT-3.5 Turbo         | gpt-3.5-t / gpt-3.5-turbo          |
+| OpenAI    | GPT-4                 | gpt-4                              |
+| OpenAI    | GPT-4 Turbo           | gpt-4-t / gpt-4-turbo              |
+| OpenAI    | GPT-4o                | gpt-4o                             |
+| OpenAI    | GPT-4o-mini           | gpt-4o-m / gpt-4o-mini             |
+| Anthropic | Claude-3 Haiku        | claude-3-h / claude-3-haiku        |
+| Anthropic | Claude-3 Sonnet       | claude-3-s / claude-3-sonnet       |
+| Anthropic | Claude-3 Opus         | claude-3-o / claude-3-opus         |
+| Anthropic | Claude-3.5 Sonnet     | claude-3.5-s / claude-3.5-sonnet   |
+| Cohere    | Command-r Plus        | command-r-p / command-r-plus       |
+| Cohere    | Command-r             | command-r                          |
+| Cohere    | Command               | command                            |
+| Cohere    | Command Nightly       | command-n / command-nightly        |
+| Cohere    | Command Light         | command-l / command-light          |
+| Cohere    | Command Light Nightly | command-ln / command-light-nightly |
 
 ### Image Generation
-| Provider  | Model             | In-package Model Name            |
-|-----------|-------------------|----------------------------------|
-| OpenAI    | DALL-E 3          | dall-e-3                         |
+
+| Provider  | Model                          | In-package Model Name     |
+|-----------|--------------------------------|---------------------------|
+| OpenAI    | DALL-E 3                       | dall-e-3                  |
+| OpenAI    | DALL-E 2                       | dall-e-2                  |
+| Stability | Stable Diffusion Ultra         | sd-u / sd-ultra           |
+| Stability | Stable Diffusion Core          | sd-c / sd-core            |
+| Stability | Stable Diffusion 3 Large       | sd3-l / sd3-large         |
+| Stability | Stable Diffusion 3 Large Turbo | sd3-l-t / sd3-large-turbo |
+| Stability | Stable Diffusion 3 Medium      | sd3-m / sd3-medium        |
+| Stability | Stable Diffusion XL            | sdxl / sd-xl              |
+| Stability | Stable Diffusion 1.6           | sd / sd-1.6               |
+| Stability | Stable Diffusion Beta          | sd-beta                   |
+
+*Note: the v1 models of stability APIs use a different RML template than the v2 models.*
 
 ## Roadmap
 
@@ -175,7 +196,6 @@ Rosemary is still in the early stage of development. We are looking forward to a
 usability of the system. Here are some of the features we are planning to add in the future:
 
 - More AI endpoint support
-- AsyncIO support
 - Stronger and more flexible template language
 - More built-in templates
 - Visualize and debug tools
