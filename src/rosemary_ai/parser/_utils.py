@@ -22,7 +22,7 @@ RESERVED_ATTR_NAMES = {
 }
 
 
-def _check_invalid_attributes(element: RmlElement, reserved_attr_names: set[str]):
+def check_invalid_attributes(element: RmlElement, reserved_attr_names: set[str]):
     attribute_names = set(element.attributes.keys())
     invalid_attr_names = attribute_names - reserved_attr_names
     for name in invalid_attr_names:

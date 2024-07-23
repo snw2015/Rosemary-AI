@@ -1,6 +1,6 @@
 from typing import List, Tuple, TypeAlias, Dict
 
-from ._utils import _check_invalid_attributes, RESERVED_ATTR_NAMES
+from ._utils import check_invalid_attributes, RESERVED_ATTR_NAMES
 from ..exceptions import RmlSyntaxException
 from ..parser.data_expression import VariableContext, DataExpression
 from ..parser.leaf_elements import RosemaryPetal, RosemaryTemplate, RosemaryNamespace
@@ -67,7 +67,7 @@ def rml_to_petal(tree: RmlElement, namespace: RosemaryNamespace, src_path: str) 
     formatter = None
     parser = None
 
-    _check_invalid_attributes(tree, RESERVED_ATTR_NAMES['petal'])
+    check_invalid_attributes(tree, RESERVED_ATTR_NAMES['petal'])
 
     assert 'name' in tree.attributes
     name = tree.attributes['name']
@@ -78,10 +78,10 @@ def rml_to_petal(tree: RmlElement, namespace: RosemaryNamespace, src_path: str) 
         if child.is_text:
             continue
         elif child.indicator == ('formatter',):
-            _check_invalid_attributes(child, RESERVED_ATTR_NAMES['formatter'])
+            check_invalid_attributes(child, RESERVED_ATTR_NAMES['formatter'])
             formatter = child
         elif child.indicator == ('parser',):
-            _check_invalid_attributes(child, RESERVED_ATTR_NAMES['parser'])
+            check_invalid_attributes(child, RESERVED_ATTR_NAMES['parser'])
             if 'strict' in child.attributes:
                 is_parse_strict = eval(child.attributes['strict'], {})
             parser = child
@@ -136,7 +136,7 @@ def _get_slot_params(str_repr: str) -> Dict[str, List[str]]:
 def rml_to_template(tree: RmlElement, namespace: RosemaryNamespace, src_path: str) -> RosemaryTemplate:
     parameter_names = []
 
-    _check_invalid_attributes(tree, RESERVED_ATTR_NAMES['template'])
+    check_invalid_attributes(tree, RESERVED_ATTR_NAMES['template'])
 
     # Deprecated
     if 'var' in tree.attributes:
