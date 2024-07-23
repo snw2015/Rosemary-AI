@@ -55,7 +55,7 @@ class RosemaryParser:
 
             as_names = [None] * len(element_names)
 
-            if child.attributes['as']:
+            if 'as' in child.attributes:
                 as_names = list(map(str.strip, child.attributes['as'].split(',')))
                 if len(element_names) != len(as_names):
                     raise RmlSyntaxException(

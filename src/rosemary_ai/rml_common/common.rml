@@ -1,79 +1,15 @@
-<import path="_utils.rml"/>
-<import path="_gpt.rml"/>
-
+<!-- Deprecated: This corolla is deprecated and will be removed in the future. -->
 <corolla name="gpt">
-    <template name="chat" param="max_tokens, temperature, timeout" slot="message(role)">
-        <dict>
-            <dict-item key="messages">
-                <list>
-                    <for slot="message">
-                        <list-item>
-                            <_gpt.message role="role">
-                                <message/>
-                            </_gpt.message>
-                        </list-item>
-                    </for>
-                </list>
-            </dict-item>
-            <_utils.option name="'max_tokens'" value="max_tokens"/>
-            <_utils.option name="'temperature'" value="temperature"/>
-            <_utils.option name="'timeout'" value="timeout"/>
-        </dict>
-    </template>
+    <import path="_text.rml" element="chat"/>
+    <import path="_gpt.rml" element="image"/>
+</corolla>
 
-    <corolla name="image">
-        <template name="generate" param="strict, quality, size, style" slot="@prompt">
-            <dict>
-                <dict-item key="prompt">
-                    <if cond="strict">
-                        I NEED to test how the tool works with extremely simple prompts. DO NOT add any detail, just use
-                        it AS-IS:
-                    </if>
-                    <prompt/>
-                </dict-item>
-                <_utils.option name="'quality'" value="quality"/>
-                <_utils.option name="'size'" value="size"/>
-                <_utils.option name="'style'" value="style"/>
-            </dict>
-        </template>
-    </corolla>
+
+<corolla name="text">
+    <import path="_text.rml" element="chat"/>
 </corolla>
 
 <corolla name="image">
-    <template name="sd-v2" param="negative_prompt, aspect_ratio, output_format" slot="@prompt">
-        <dict>
-            <dict-item key="prompt">
-                <prompt/>
-            </dict-item>
-            <_utils.option name="'negative_prompt'" value="negative_prompt"/>
-            <_utils.option name="'aspect_ratio'" value="aspect_ratio"/>
-            <_utils.option name="'output_format'" value="output_format"/>
-        </dict>
-    </template>
-
-    <template name="sd-v1" param="height, width, style_preset" slot="prompt(weight)">
-        <dict>
-            <dict-item key="prompts">
-                <list>
-                    <for slot="prompt">
-                        <list-item>
-                            <dict>
-                                <dict-item key="text">
-                                    <prompt/>
-                                </dict-item>
-                                <if cond="weight is not None">
-                                    <dict-item key="weight">
-                                        {weight}
-                                    </dict-item>
-                                </if>
-                            </dict>
-                        </list-item>
-                    </for>
-                </list>
-            </dict-item>
-            <_utils.option name="'height'" value="height"/>
-            <_utils.option name="'width'" value="width"/>
-            <_utils.option name="'style_preset'" value="style_preset"/>
-        </dict>
-    </template>
+    <import path="_sd.rml" element="sd-v1, sd-v2"/>
+    <import path="_gpt.rml" element="image.generate" as="dall-e"/>
 </corolla>

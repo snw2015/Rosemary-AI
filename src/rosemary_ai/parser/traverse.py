@@ -224,7 +224,7 @@ def _traverse_slot(curr_env: Environment, element: RmlElement, executor: Executo
     indicator = element.indicator[0]
 
     if element.children:
-        raise RmlFormatException('Slot element used in a template cannot have children.')
+        raise RmlFormatException(f'Slot element ("{indicator}") used in a template cannot have children.')
 
     slot = curr_env.slots[indicator]
     if not slot.has_next():

@@ -1,0 +1,28 @@
+<import path="_utils.rml" element="option"/>
+
+<template name="role_and_message" param="role" slot="@content">
+    <dict>
+        <dict-item key_eval="role">
+            <content/>
+        </dict-item>
+    </dict>
+</template>
+
+<template name="chat" param="max_tokens, temperature, timeout" slot="message(role)">
+    <dict>
+        <dict-item key="messages">
+            <list>
+                <for slot="message">
+                    <list-item>
+                        <role_and_message role="role">
+                            <message/>
+                        </role_and_message>
+                    </list-item>
+                </for>
+            </list>
+        </dict-item>
+        <option name="'max_tokens'" value="max_tokens"/>
+        <option name="'temperature'" value="temperature"/>
+        <option name="'timeout'" value="timeout"/>
+    </dict>
+</template>
