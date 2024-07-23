@@ -238,7 +238,7 @@ class Rosemary:
     def get_function(self, function_name: str, signature: Signature = None,
                      model_name: str = None, options: Dict[str, Any] = None,
                      dry_run_val=None, is_async: bool = False) -> Callable:
-        petal = self.namespace.get_by_indicator(full_name_to_indicator(function_name))
+        petal = self.namespace[function_name]
         default_model_name = model_name
         default_options = options
 
@@ -311,7 +311,7 @@ class Rosemary:
                             model_name: str = None, options: Dict[str, Any] = None,
                             dry_run_generator: Generator = None,
                             is_async: bool = False) -> Callable:
-        petal = self.namespace.get_by_indicator(full_name_to_indicator(function_name))
+        petal = self.namespace[function_name]
         default_model_name = model_name
         default_options = options
 
@@ -366,7 +366,7 @@ class Rosemary:
         return func
 
     def get_formatter(self, function_name: str) -> Callable:
-        petal = self.namespace.get_by_indicator(full_name_to_indicator(function_name))
+        petal = self.namespace[function_name]
 
         def formatter(**args):
             return _format(petal, args)
@@ -374,7 +374,7 @@ class Rosemary:
         return formatter
 
     def get_parser(self, function_name: str) -> Callable:
-        petal = self.namespace.get_by_indicator(full_name_to_indicator(function_name))
+        petal = self.namespace[function_name]
 
         def parser(raw_str: str, target_obj=None, **args):
             return _parse(petal, args, raw_str, target_obj)

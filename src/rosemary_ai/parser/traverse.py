@@ -241,7 +241,7 @@ def _traverse_template(curr_env: Environment, element: RmlElement, executor: Exe
     indicator = element.indicator
 
     try:
-        template: RosemaryTemplate = curr_env.namespace.get_by_indicator(indicator)
+        template: RosemaryTemplate = curr_env.namespace[indicator]
     except Exception:
         raise RmlFormatException(f'Unknown tag: {indicator}.')
 

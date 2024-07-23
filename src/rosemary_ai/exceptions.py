@@ -5,7 +5,7 @@ class RmlTagNotClosedException(Exception):
 
 class RmlSyntaxException(Exception):
     def __init__(self, message, src_path):
-        super().__init__(f'{message} in "{src_path}".')
+        super().__init__(f'Error when parsing {src_path}: {message}.')
 
 
 class RmlFormatException(Exception):
