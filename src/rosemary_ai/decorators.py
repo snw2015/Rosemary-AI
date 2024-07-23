@@ -2,7 +2,7 @@ import functools
 import inspect
 from typing import Dict, Any, Callable
 
-from ._utils._typing import add_parameter_to_func
+from ._utils.typing_utils import add_parameter_to_func
 from .rosemary import get_function, get_function_stream
 
 

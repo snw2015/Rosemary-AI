@@ -1,8 +1,7 @@
 from typing import Generator, Dict, Any, List, Tuple
 
 from ._option_types import CHAT_OPTION_TYPES
-from ._utils import _shape_messages, _update_options, reform_system_message
-from .._utils._image import _image_to_data_uri  # noqa
+from ._utils import shape_messages, update_options, reform_system_message
 from .generator import AbstractContentGenerator
 from anthropic import Anthropic, NOT_GIVEN, AsyncAnthropic
 
@@ -16,10 +15,10 @@ class ClaudeChatGenerator(AbstractContentGenerator[str]):
 
     def _set_up(self, data: Dict[str, str | List[Dict[str, str | List]]],
                 options: Dict[str, Any], dry_run: bool, api_key: str) -> Tuple:
-        messages = _shape_messages(data.pop('messages'))
+        messages = shape_messages(data.pop('messages'))
 
         data: Dict[str, List[str]]
-        _update_options(options, data, CHAT_OPTION_TYPES)
+        update_options(options, data, CHAT_OPTION_TYPES)
 
         messages, system = reform_system_message(messages, 'Claude')
         if system is None:

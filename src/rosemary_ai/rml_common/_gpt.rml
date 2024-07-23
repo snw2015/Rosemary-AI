@@ -1,9 +1,18 @@
-<corolla name="_gpt">
-    <template name="message" param="role" slot="@content">
+<import path="_utils.rml" element="option"/>
+
+<corolla name="image">
+    <template name="generate" param="strict, quality, size, style" slot="@prompt">
         <dict>
-            <dict-item key_eval="role">
-                <content/>
+            <dict-item key="prompt">
+                <if cond="strict">
+                    I NEED to test how the tool works with extremely simple prompts. DO NOT add any detail, just use
+                    it AS-IS:
+                </if>
+                <prompt/>
             </dict-item>
+            <option name="'quality'" value="quality"/>
+            <option name="'size'" value="size"/>
+            <option name="'style'" value="style"/>
         </dict>
     </template>
 </corolla>

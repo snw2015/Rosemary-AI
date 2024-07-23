@@ -1,12 +1,10 @@
 from abc import ABC, abstractmethod
-from typing import TypeAlias, Generator, TypeVar, Union, Generic, Dict, Any, AsyncIterable
+from typing import Generator, TypeVar, Generic, Dict, Any, AsyncIterable
 
-from ..multi_modal.image import Image
 from .api_key_manager import get_api_key
 
-CONTENT_TYPES = (str, Image, bytes)
-ContentType: TypeAlias = Union[*CONTENT_TYPES]
-T = TypeVar('T', *CONTENT_TYPES)  # noqa
+
+T = TypeVar('T')
 
 
 class AbstractContentGenerator(ABC, Generic[T]):

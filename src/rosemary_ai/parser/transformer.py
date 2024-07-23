@@ -3,9 +3,9 @@ from typing import List, Tuple
 
 from lark import Transformer
 
-from .._utils._str_escape import escape_data_indicator, escape_attribute_value, escape_plain_text  # noqa
-from .._utils._str_utils import (calc_leading_ws_and_remove_leading, clean_leading_ws_lines, # noqa
-    remove_trailing_blank_lines)
+from .._utils.str_escape import escape_data_indicator, escape_attribute_value, escape_plain_text  # noqa
+from .._utils.str_utils import (calc_leading_ws_and_remove_leading, clean_leading_ws_lines, # noqa
+                                remove_trailing_blank_lines)
 from ..exceptions import RmlTagNotClosedException
 
 

@@ -5,8 +5,9 @@ import requests
 from httpx import AsyncClient
 
 from ._option_types import STABLE_GEN_V2_OPTION_TYPES, STABLE_GEN_V1_OPTION_TYPES
-from ._utils import _update_options, _check_response_status
+from ._utils import update_options, check_response_status
 from .generator import AbstractContentGenerator
+from ..exceptions import RmlFormatException
 
 from .._logger import LOGGER
 
@@ -36,10 +37,10 @@ class StabilityImageGenerator(AbstractContentGenerator[bytes]):
                 options: Dict[str, Any], dry_run: bool, api_key: str) -> Tuple:
         prompt = data.pop('prompt')
         if isinstance(prompt, list):
-            prompt = ''.join(prompt)
+            raise RmlFormatException('Prompt must only contain string.')
 
         data: Dict[str, List[str]]
-        _update_options(options, data, STABLE_GEN_V2_OPTION_TYPES)
+        update_options(options, data, STABLE_GEN_V2_OPTION_TYPES)
 
         LOGGER.info(f'Sending prompt to {self.model_name}: "{prompt}".')
         LOGGER.debug(f'Options: {options}.')
@@ -82,7 +83,7 @@ class StabilityImageGenerator(AbstractContentGenerator[bytes]):
 
         LOGGER.info(f'Received response from {self.model_name}: "{response}".')
 
-        _check_response_status(response)
+        check_response_status(response)
 
         return response.content
 
@@ -110,7 +111,7 @@ class StabilityImageGenerator(AbstractContentGenerator[bytes]):
 
         LOGGER.info(f'Received response from {self.model_name}: "{response}".')
 
-        _check_response_status(response)
+        check_response_status(response)
 
         return response.content
 
@@ -141,12 +142,12 @@ class StabilityV1ImageGenerator(AbstractContentGenerator[bytes]):
         prompts = data.pop('prompts')
         for prompt in prompts:
             if isinstance(prompt['text'], list):
-                prompt['text'] = ''.join(prompt['text'])
+                raise RmlFormatException('Prompt must only contain string.')
             if 'weight' in prompt:
                 prompt['weight'] = float(prompt['weight'][0])
 
         data: Dict[str, List[str]]
-        _update_options(options, data, STABLE_GEN_V1_OPTION_TYPES)
+        update_options(options, data, STABLE_GEN_V1_OPTION_TYPES)
 
         LOGGER.info(f'Sending prompt to {self.model_name}: "{prompts}".')
         LOGGER.debug(f'Options: {options}.')
@@ -188,7 +189,7 @@ class StabilityV1ImageGenerator(AbstractContentGenerator[bytes]):
 
         LOGGER.info(f'Received response from {self.model_name}: "{response}".')
 
-        _check_response_status(response)
+        check_response_status(response)
 
         return response.content
 
@@ -216,7 +217,7 @@ class StabilityV1ImageGenerator(AbstractContentGenerator[bytes]):
 
         LOGGER.info(f'Received response from {self.model_name}: "{response}".')
 
-        _check_response_status(response)
+        check_response_status(response)
 
         return response.content
 

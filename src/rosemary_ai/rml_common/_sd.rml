@@ -1,0 +1,38 @@
+<import path="_utils.rml" element="option"/>
+
+<template name="sd-v2" param="negative_prompt, aspect_ratio, output_format" slot="@prompt">
+    <dict>
+        <dict-item key="prompt">
+            <prompt/>
+        </dict-item>
+        <option name="'negative_prompt'" value="negative_prompt"/>
+        <option name="'aspect_ratio'" value="aspect_ratio"/>
+        <option name="'output_format'" value="output_format"/>
+    </dict>
+</template>
+
+<template name="sd-v1" param="height, width, style_preset" slot="prompt(weight)">
+    <dict>
+        <dict-item key="prompts">
+            <list>
+                <for slot="prompt">
+                    <list-item>
+                        <dict>
+                            <dict-item key="text">
+                                <prompt/>
+                            </dict-item>
+                            <if cond="weight is not None">
+                                <dict-item key="weight">
+                                    {weight}
+                                </dict-item>
+                            </if>
+                        </dict>
+                    </list-item>
+                </for>
+            </list>
+        </dict-item>
+        <option name="'height'" value="height"/>
+        <option name="'width'" value="width"/>
+        <option name="'style_preset'" value="style_preset"/>
+    </dict>
+</template>

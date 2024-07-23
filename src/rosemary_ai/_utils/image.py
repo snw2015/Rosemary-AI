@@ -10,7 +10,7 @@ def _image_to_base64(img: Image) -> str:
         return b64encode(f.read()).decode()
 
 
-def _image_to_data_uri(img: Image) -> str:
+def image_to_data_uri(img: Image) -> str:
     if img.is_url:
         return img.src
     else:

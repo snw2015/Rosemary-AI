@@ -4,11 +4,11 @@ import httpx
 import requests
 
 from ..exceptions import RmlFormatException, RequestFailedException
-from .._utils._image import _image_to_data_uri  # noqa
+from .._utils.image import image_to_data_uri
 from ..multi_modal.image import Image
 
 
-def _shape_messages(data: List[Dict[str, str | List[str | Image]]]) -> List[Dict[str, str]]:
+def shape_messages(data: List[Dict[str, str | List[str | Image]]]) -> List[Dict[str, str]]:
     messages = []
 
     for d in data:
@@ -16,42 +16,35 @@ def _shape_messages(data: List[Dict[str, str | List[str | Image]]]) -> List[Dict
             if isinstance(content, str):
                 messages.append({'role': role, 'content': content})
             if isinstance(content, List):
-                content_arr = _glue_str(content)
-                if len(content_arr) == 1 and content_arr[0]['type'] == 'text':
-                    messages.append({'role': role, 'content': content_arr[0]['text']})
-                else:
-                    messages.append({'role': role, 'content': content_arr})
+                content_arr = _create_multimodal_arr(content)
+                messages.append({'role': role, 'content': content_arr})
 
     return messages
 
 
-def _glue_str(content: List[str | Image]) -> List[Dict[str, str]]:
+def _create_multimodal_arr(content: List[str | Image]) -> List[Dict[str, str]]:
     content_arr = []
     for c in content:
         if isinstance(c, str):
-            if content_arr and content_arr[-1]['type'] == 'text':
-                content_arr[-1]['text'] += c
-            else:
-                content_arr.append({'type': 'text', 'text': c})
+            content_arr.append({'type': 'text', 'text': c})
         elif isinstance(c, Image):
             c: Image
-            url = _image_to_data_uri(c)
+            url = image_to_data_uri(c)
             content_arr.append({'type': 'image_url', 'image_url':
                 {'url': url}})
     return content_arr
 
 
-def _update_options(options: Dict[str, Any], new_options: Dict[str, List[str]], option_types: Dict[str, Any]):
+def update_options(options: Dict[str, Any], new_options: Dict[str, List[str]], option_types: Dict[str, Any]):
     """
     Update options with new options. The new options is raw data from formatter,
     so a list of string should be converted to a string.
     It will Also cast the values to the correct type.
     """
-    for key, value_arr in new_options.items():
+    for key, value in new_options.items():
         if key not in options:
-            if len(value_arr) != 1:
-                raise RmlFormatException(f'Unexpected value for option {key}.')
-            value = value_arr[0]
+            if not isinstance(value, str):
+                raise RmlFormatException(f'Unexpected value "{value}" for option {key}.')
             if key in option_types:
                 value = option_types[key](value)
             options[key] = value
@@ -76,6 +69,6 @@ def reform_system_message(messages, provider: str):
     return messages, system
 
 
-def _check_response_status(response: requests.Response | httpx.Response) -> None:
+def check_response_status(response: requests.Response | httpx.Response) -> None:
     if response.status_code != 200:
         raise RequestFailedException(response)
