@@ -74,12 +74,14 @@ def rml_to_petal(tree: RmlElement, namespace: RosemaryNamespace, src_path: str) 
 
     is_parse_strict = False
 
+    is_formatter_found = False
     for child in tree.children:
         if child.is_text:
             continue
         elif child.indicator == ('formatter',):
             check_invalid_attributes(child, RESERVED_ATTR_NAMES['formatter'])
             formatter = child
+            is_formatter_found = True
         elif child.indicator == ('parser',):
             check_invalid_attributes(child, RESERVED_ATTR_NAMES['parser'])
             if 'strict' in child.attributes:
@@ -87,6 +89,10 @@ def rml_to_petal(tree: RmlElement, namespace: RosemaryNamespace, src_path: str) 
             parser = child
         else:
             raise RmlSyntaxException(f'Unknown element {child.indicator}', src_path)
+
+    if not is_formatter_found:
+        raise RmlSyntaxException('A petal must have a formatter', src_path)
+
     target = None
     if 'target' in tree.attributes:
         target = tree.attributes['target']

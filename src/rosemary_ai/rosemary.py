@@ -12,7 +12,7 @@ from .parser.leaf_elements import RosemaryPetal
 from .parser.environment import build_environment
 from .parser.traverse import traverse_all
 from .parser.namespace import Namespace
-from .parser.parser import RosemaryParser
+from .parser.rml_parser import RosemaryParser
 from ._utils.str_utils import full_name_to_indicator  # noqa
 
 _EMPTY = Signature.empty
