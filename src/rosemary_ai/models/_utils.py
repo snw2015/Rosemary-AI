@@ -64,7 +64,7 @@ def reform_system_message(messages, provider: str):
         raise NotImplementedError(f'Only the first message can be a system prompt in {provider}.')
 
     if not messages:
-        raise NotImplementedError(f'At least one message is required in Claude {provider}.')
+        raise NotImplementedError(f'At least one message is required in {provider}.')
 
     return messages, system
 
