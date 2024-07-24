@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "rosemary_ai"
-version = "0.0.11"
+version = "0.0.12"
 authors = [{name="Samjna", mailto="snw201510@gmail.com"}]
 description = "A Template Engine For LLMs and Generative AIs"
 readme = "README_PYPI.md"
@@ -34,6 +34,7 @@ include = [
 ]
 exclude = [
     "tests",
+    "test/"
 ]
 
 [tool.hatch.build.targets.wheel]
@@ -45,4 +46,5 @@ include = [
 ]
 exclude = [
     "tests",
+    "test/"
 ]

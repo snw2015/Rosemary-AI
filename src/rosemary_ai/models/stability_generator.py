@@ -144,7 +144,7 @@ class StabilityV1ImageGenerator(AbstractContentGenerator[bytes]):
             if isinstance(prompt['text'], list):
                 raise RmlFormatException('Prompt must only contain string.')
             if 'weight' in prompt:
-                prompt['weight'] = float(prompt['weight'][0])
+                prompt['weight'] = float(prompt['weight'])
 
         data: Dict[str, List[str]]
         update_options(options, data, STABLE_GEN_V1_OPTION_TYPES)

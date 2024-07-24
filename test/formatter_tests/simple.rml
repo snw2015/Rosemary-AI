@@ -1,0 +1,7 @@
+<petal name="empty_formatter">
+    <formatter></formatter>
+</petal>
+
+<petal name="fixed_str">
+    <formatter>fixed</formatter>
+</petal>
