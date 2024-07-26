@@ -2,6 +2,7 @@ import typing
 from inspect import Signature
 from typing import Callable, Dict, Any, Tuple, Generator
 
+from ._global_settings import SETTINGS
 from ._logger import LOGGER
 from ._utils.dict_utils import options_with_default
 from ._utils.typing_utils import isinstance_
@@ -159,6 +160,7 @@ def _fill_args(kwargs: Dict[str, Any], signature: Signature, args: Tuple[Any]) -
                     else:
                         LOGGER.warning(
                             f'Argument {param.name} without default value is not given. Will use None.')
+                        kwargs[param.name] = None
 
                 try:
                     if param.annotation is not _EMPTY and not isinstance_(kwargs[param.name], param.annotation):
@@ -228,6 +230,7 @@ def _parse(petal: RosemaryPetal, data: Dict[str, Any], raw_data: Any, target_obj
 
 
 class Rosemary:
+
     def __init__(self, src_path: str):
         self._build_from_src(src_path)
 
@@ -244,7 +247,9 @@ class Rosemary:
 
         _print_unsupported_types_hint(signature)
 
-        def __set_up(kwargs: Dict[str, Any], args: Tuple[Any], options_: Dict[str, Any], max_tries: int) -> Tuple:
+        def __set_up(kwargs: Dict[str, Any], args: Tuple[Any],
+                     options_: Dict[str, Any], max_tries: int,
+                     dry_run: bool) -> Tuple:
             full_args = _fill_args(kwargs, signature, args)
 
             options_ = options_with_default(options_, default_options)
@@ -254,7 +259,9 @@ class Rosemary:
                 max_tries = _MAX_TRIES
                 inf_tries = True
 
-            return full_args, options_, max_tries, inf_tries
+            dry_run = SETTINGS.get('DRY_RUN') if dry_run is None else dry_run
+
+            return full_args, options_, max_tries, inf_tries, dry_run
 
         def __handle_exception(e: ParsingFailedException, time_try: int, max_tries: int, inf_tries: bool):
             LOGGER.info(str(e))
@@ -266,13 +273,14 @@ class Rosemary:
 
         if is_async:
             async def func(*args, target_obj=None, model_name: str = default_model_name, options=None,
-                           max_tries: int = 1, dry_run: bool = False, api_key: str = None,
+                           max_tries: int = 1, dry_run: bool = None, api_key: str = None,
                            **kwargs) -> Any:
-                full_args, options_, max_tries, inf_tries = __set_up(kwargs, args, options, max_tries)
+                full_args, options_, max_tries, inf_tries, dry_run_ =\
+                    __set_up(kwargs, args, options, max_tries, dry_run)
 
                 for time_try in range(max_tries):
                     try:
-                        result = await _generate_async(petal, model_name, options_, dry_run,
+                        result = await _generate_async(petal, model_name, options_, dry_run_,
                                                        dry_run_val, target_obj, full_args, api_key)
                     except ParsingFailedException as e:
                         __handle_exception(e, time_try, max_tries, inf_tries)
@@ -287,13 +295,14 @@ class Rosemary:
         else:
 
             def func(*args, target_obj=None, model_name: str = default_model_name, options=None,
-                     max_tries: int = 1, dry_run: bool = False, api_key: str = None,
+                     max_tries: int = 1, dry_run: bool = None, api_key: str = None,
                      **kwargs) -> Any:
-                full_args, options_, max_tries, inf_tries = __set_up(kwargs, args, options, max_tries)
+                full_args, options_, max_tries, inf_tries, dry_run_ =\
+                    __set_up(kwargs, args, options, max_tries, dry_run)
 
                 for time_try in range(max_tries):
                     try:
-                        result = _generate(petal, model_name, options_, dry_run, dry_run_val,
+                        result = _generate(petal, model_name, options_, dry_run_, dry_run_val,
                                            target_obj, full_args, api_key)
                     except ParsingFailedException as e:
                         __handle_exception(e, time_try, max_tries, inf_tries)
@@ -326,7 +335,9 @@ class Rosemary:
             else:
                 LOGGER.warning(f'Return type "{annotation}" of "{function_name}" is not a generator type.')
 
-        def __set_up(kwargs: Dict[str, Any], args: Tuple[Any], options_: Dict[str, Any], max_tries: int) -> Tuple:
+        def __set_up(kwargs: Dict[str, Any], args: Tuple[Any],
+                     options_: Dict[str, Any], max_tries: int,
+                     dry_run: bool) -> Tuple:
             full_args = _fill_args(kwargs, signature, args)
 
             options_ = options_with_default(options_, default_options)
@@ -334,16 +345,18 @@ class Rosemary:
             if max_tries != 1:
                 LOGGER.warning('max_tries is not supported in stream mode. Will only try once.')
 
-            return full_args, options_
+            dry_run = SETTINGS.get('DRY_RUN') if dry_run is None else dry_run
+
+            return full_args, options_, dry_run
 
         if is_async:
             async def func(*args, target_obj=None, model_name: str = default_model_name, options=None,
-                           max_tries: int = 1, dry_run: bool = False, api_key: str = None,
+                           max_tries: int = 1, dry_run: bool = None, api_key: str = None,
                            **kwargs) -> (Generator[Any, None, None]):
-                full_args, options_ = __set_up(kwargs, args, options, max_tries)
+                full_args, options_, dry_run_ = __set_up(kwargs, args, options, max_tries, dry_run)
 
                 async for data in _generate_stream_async(petal, model_name, options_,
-                                                         dry_run, dry_run_generator,
+                                                         dry_run_, dry_run_generator,
                                                          target_obj, full_args, api_key):
                     if data_type:
                         _check_return_type(data, data_type)
@@ -351,12 +364,12 @@ class Rosemary:
                     yield data
         else:
             def func(*args, target_obj=None, model_name: str = default_model_name, options=None,
-                     max_tries: int = 1, dry_run: bool = False, api_key: str = None,
+                     max_tries: int = 1, dry_run: bool = None, api_key: str = None,
                      **kwargs) -> (Generator[Any, None, None]):
-                full_args, options_ = __set_up(kwargs, args, options, max_tries)
+                full_args, options_, dry_run_ = __set_up(kwargs, args, options, max_tries, dry_run)
 
                 for data in _generate_stream(petal, model_name, options_,
-                                             dry_run, dry_run_generator,
+                                             dry_run_, dry_run_generator,
                                              target_obj, full_args, api_key):
                     if data_type:
                         _check_return_type(data, data_type)
@@ -396,7 +409,7 @@ def load(name: str, src_path: str):
 
 def get_function(name: str, function_name: str, signature: Signature = None,
                  model_name: str = None, options: Dict[str, Any] = None, dry_run_val=None,
-                 is_async: bool = False) -> Callable:
+                 is_async: bool = None) -> Callable:
     return _ROSEMARY_INSTANCE[name].get_function(
         function_name, signature, model_name, options, dry_run_val, is_async
     )
@@ -408,3 +421,7 @@ def get_function_stream(name: str, function_name: str, signature: Signature,
                         is_async: bool = False) -> Callable:
     return _ROSEMARY_INSTANCE[name].get_function_stream(function_name, signature, model_name,
                                                         options, dry_run_generator, is_async)
+
+
+def set_dry_run(dry_run: bool = True):
+    SETTINGS.set('DRY_RUN', dry_run)
