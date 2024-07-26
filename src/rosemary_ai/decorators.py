@@ -11,7 +11,7 @@ def _without_extra_kwargs(kwargs: Dict[str, Any], func: Callable) -> Dict[str, A
 
 
 def petal(rosemary_name: str, function_name: str, stream=False,
-          model_name: str = None, options: Dict[str, Any] = None):
+          model_name: str = None, options: Dict[str, Any] = None, api_key: str = None):
     def decorator(func):
         signatures = inspect.signature(func)
         is_async = inspect.iscoroutinefunction(func) or inspect.isasyncgenfunction(func)
@@ -25,7 +25,7 @@ def petal(rosemary_name: str, function_name: str, stream=False,
                     rosemary_function = get_function_stream(rosemary_name, function_name, signatures,
                                                             model_name, options,
                                                             func(*args, **kwargs_without_extra),
-                                                            True)
+                                                            True, api_key)
 
                     async for result in rosemary_function(*args, **kwargs):
                         yield result
@@ -37,7 +37,7 @@ def petal(rosemary_name: str, function_name: str, stream=False,
                     rosemary_function = get_function(rosemary_name, function_name, signatures,
                                                      model_name, options,
                                                      await func(*args, **kwargs_without_extra),
-                                                     True)
+                                                     True, api_key)
 
                     return await rosemary_function(*args, **kwargs)
         else:
@@ -49,13 +49,13 @@ def petal(rosemary_name: str, function_name: str, stream=False,
                     rosemary_function = get_function_stream(rosemary_name, function_name, signatures,
                                                             model_name, options,
                                                             func(*args, **kwargs_without_extra),
-                                                            False)
+                                                            False, api_key)
 
                 else:
                     rosemary_function = get_function(rosemary_name, function_name, signatures,
                                                      model_name, options,
                                                      func(*args, **kwargs_without_extra),
-                                                     False)
+                                                     False, api_key)
 
                 return rosemary_function(*args, **kwargs)
 

@@ -163,6 +163,9 @@ def _fill_args(kwargs: Dict[str, Any], signature: Signature, args: Tuple[Any]) -
                         kwargs[param.name] = None
 
                 try:
+                    if kwargs[param.name] is None:
+                        continue
+
                     if param.annotation is not _EMPTY and not isinstance_(kwargs[param.name], param.annotation):
                         LOGGER.warning(f'Argument "{param.name}" has value "{repr(kwargs[param.name])}",'
                                        f' which is not of type {param.annotation}.')
@@ -174,6 +177,8 @@ def _fill_args(kwargs: Dict[str, Any], signature: Signature, args: Tuple[Any]) -
 
 def _check_return_type(result, type_):
     try:
+        if result is None:
+            return
         if type_ is not _EMPTY and not isinstance_(result, type_):
             LOGGER.warning(f'Generated result "{repr(result)}" is not of type {type_}.')
     except TypeError:
@@ -240,10 +245,12 @@ class Rosemary:
 
     def get_function(self, function_name: str, signature: Signature = None,
                      model_name: str = None, options: Dict[str, Any] = None,
-                     dry_run_val=None, is_async: bool = False) -> Callable:
+                     dry_run_val=None, is_async: bool = False,
+                     api_key: str = None) -> Callable:
         petal = self.namespace[function_name]
         default_model_name = model_name
         default_options = options
+        default_api_key = api_key
 
         _print_unsupported_types_hint(signature)
 
@@ -273,9 +280,9 @@ class Rosemary:
 
         if is_async:
             async def func(*args, target_obj=None, model_name: str = default_model_name, options=None,
-                           max_tries: int = 1, dry_run: bool = None, api_key: str = None,
+                           max_tries: int = 1, dry_run: bool = None, api_key: str = default_api_key,
                            **kwargs) -> Any:
-                full_args, options_, max_tries, inf_tries, dry_run_ =\
+                full_args, options_, max_tries, inf_tries, dry_run_ = \
                     __set_up(kwargs, args, options, max_tries, dry_run)
 
                 for time_try in range(max_tries):
@@ -295,9 +302,9 @@ class Rosemary:
         else:
 
             def func(*args, target_obj=None, model_name: str = default_model_name, options=None,
-                     max_tries: int = 1, dry_run: bool = None, api_key: str = None,
+                     max_tries: int = 1, dry_run: bool = None, api_key: str = default_api_key,
                      **kwargs) -> Any:
-                full_args, options_, max_tries, inf_tries, dry_run_ =\
+                full_args, options_, max_tries, inf_tries, dry_run_ = \
                     __set_up(kwargs, args, options, max_tries, dry_run)
 
                 for time_try in range(max_tries):
@@ -319,10 +326,12 @@ class Rosemary:
     def get_function_stream(self, function_name: str, signature: Signature = None,
                             model_name: str = None, options: Dict[str, Any] = None,
                             dry_run_generator: Generator = None,
-                            is_async: bool = False) -> Callable:
+                            is_async: bool = False,
+                            api_key: str = None) -> Callable:
         petal = self.namespace[function_name]
         default_model_name = model_name
         default_options = options
+        default_api_key = api_key
 
         _print_unsupported_types_hint(signature)
 
@@ -351,7 +360,7 @@ class Rosemary:
 
         if is_async:
             async def func(*args, target_obj=None, model_name: str = default_model_name, options=None,
-                           max_tries: int = 1, dry_run: bool = None, api_key: str = None,
+                           max_tries: int = 1, dry_run: bool = None, api_key: str = default_api_key,
                            **kwargs) -> (Generator[Any, None, None]):
                 full_args, options_, dry_run_ = __set_up(kwargs, args, options, max_tries, dry_run)
 
@@ -364,7 +373,7 @@ class Rosemary:
                     yield data
         else:
             def func(*args, target_obj=None, model_name: str = default_model_name, options=None,
-                     max_tries: int = 1, dry_run: bool = None, api_key: str = None,
+                     max_tries: int = 1, dry_run: bool = None, api_key: str = default_api_key,
                      **kwargs) -> (Generator[Any, None, None]):
                 full_args, options_, dry_run_ = __set_up(kwargs, args, options, max_tries, dry_run)
 
@@ -409,18 +418,23 @@ def load(name: str, src_path: str):
 
 def get_function(name: str, function_name: str, signature: Signature = None,
                  model_name: str = None, options: Dict[str, Any] = None, dry_run_val=None,
-                 is_async: bool = None) -> Callable:
+                 is_async: bool = None,
+                 api_key: str = None,
+                 ) -> Callable:
     return _ROSEMARY_INSTANCE[name].get_function(
-        function_name, signature, model_name, options, dry_run_val, is_async
+        function_name, signature, model_name, options, dry_run_val, is_async, api_key
     )
 
 
 def get_function_stream(name: str, function_name: str, signature: Signature,
                         model_name: str = None, options: Dict[str, Any] = None,
                         dry_run_generator: Generator = None,
-                        is_async: bool = False) -> Callable:
-    return _ROSEMARY_INSTANCE[name].get_function_stream(function_name, signature, model_name,
-                                                        options, dry_run_generator, is_async)
+                        is_async: bool = False,
+                        api_key: str = None,
+                        ) -> Callable:
+    return _ROSEMARY_INSTANCE[name].get_function_stream(
+        function_name, signature, model_name, options, dry_run_generator, is_async, api_key
+    )
 
 
 def set_dry_run(dry_run: bool = True):
