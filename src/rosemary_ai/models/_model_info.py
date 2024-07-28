@@ -43,3 +43,11 @@ STABLE_GEN_V1 = {
     'stable-diffusion-1.6': ['sd-1.6', 'sd'],
     'stable-diffusion-beta': ['sd-beta'],
 }
+
+# Embedding models
+
+OPENAI_EMBEDDINGS = {
+    'text-embedding-3-small': ['gpt-embed-3s'],
+    'text-embedding-3-large': ['gpt-embed-3l'],
+    'text-embedding-ada-002': ['gpt-embed-ada'],
+}

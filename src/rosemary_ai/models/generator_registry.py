@@ -5,7 +5,7 @@ from . import _model_info
 from .claude_generator import ClaudeChatGenerator
 from .cohere_generator import CohereChatGenerator
 from .generator import AbstractContentGenerator
-from .gpt_generator import GPTChatGenerator, GPTImageGenerator
+from .gpt_generator import GPTChatGenerator, GPTImageGenerator, GPTEmbeddingGenerator
 from .stability_generator import StabilityImageGenerator, StabilityV1ImageGenerator
 
 _MODEL_GENERATORS = {}
@@ -39,6 +39,9 @@ for formal_model_name, in_lib_names in _model_info.GPT.items():
 
 for formal_model_name, in_lib_names in _model_info.DALL_E.items():
     register_generator(in_lib_names, GPTImageGenerator(formal_model_name))
+
+for formal_model_name, in_lib_names in _model_info.OPENAI_EMBEDDINGS.items():
+    register_generator(in_lib_names, GPTEmbeddingGenerator(formal_model_name))
 
 
 # Anthropic

@@ -10,6 +10,10 @@ GPT_IMAGE_OPTION_TYPES = {
     'size': str
 }
 
+EMBEDDING_OPTION_TYPES = {
+    'dimensions': int,
+}
+
 STABLE_GEN_V2_OPTION_TYPES = {
     'negative_prompt': str,
     'aspect_ratio': str,

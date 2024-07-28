@@ -188,7 +188,16 @@ Rosemary currently supports the following AI models (more models will be added s
 | Stability | Stable Diffusion 1.6           | sd / sd-1.6               |
 | Stability | Stable Diffusion Beta          | sd-beta                   |
 
-*Note: the v1 models of stability APIs use a different RML template than the v2 models.*
+*Note: the v1 models of stability APIs use a different RML template to the v2 models.*
+
+### Embedding
+
+| Provider  | Model             | In-package Model Name              |
+|-----------|-------------------|------------------------------------|
+| OpenAI    | Embedding 3 Small | gpt-embed-3s                       |
+| OpenAI    | Embedding 3 Large | gpt-embed-3l                       |
+| OpenAI    | Embedding Ada 002 | gpt-embed-ada                      |
+
 
 ## Roadmap
 
