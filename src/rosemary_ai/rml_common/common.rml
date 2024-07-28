@@ -6,8 +6,9 @@
 
 
 <corolla name="text">
-    <import path="_text.rml" element="chat"/>
+    <import path="_text.rml" element="chat, embedding"/>
 </corolla>
+
 
 <corolla name="image">
     <import path="_sd.rml" element="sd-v1, sd-v2"/>

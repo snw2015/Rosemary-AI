@@ -26,3 +26,12 @@
         <option name="'timeout'" value="timeout"/>
     </dict>
 </template>
+
+<template name="embedding" param="dimensions" slot="@input">
+    <dict>
+        <dict-item key="input">
+            <input/>
+        </dict-item>
+        <option name="'dimensions'" value="dimensions"/>
+    </dict>
+</template>
