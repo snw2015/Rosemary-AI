@@ -1,4 +1,4 @@
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Callable
 
 import httpx
 import requests
@@ -8,7 +8,10 @@ from .._utils.image import image_to_data_uri
 from ..multi_modal.image import Image
 
 
-def shape_messages(data: List[Dict[str, str | List[str | Image]]]) -> List[Dict[str, str]]:
+def shape_messages(data: List[Dict[str, str | List[str | Image]]],
+                   text_formatter: Callable[[str], Any] = None,
+                   image_formatter: Callable[[Image], Any] = None
+                   ) -> List[Dict[str, str]]:
     messages = []
 
     for d in data:
@@ -16,22 +19,31 @@ def shape_messages(data: List[Dict[str, str | List[str | Image]]]) -> List[Dict[
             if isinstance(content, str):
                 messages.append({'role': role, 'content': content})
             if isinstance(content, List):
-                content_arr = _create_multimodal_arr(content)
+                content_arr = _create_multimodal_arr(content, text_formatter, image_formatter)
                 messages.append({'role': role, 'content': content_arr})
 
     return messages
 
 
-def _create_multimodal_arr(content: List[str | Image]) -> List[Dict[str, str]]:
+def _create_multimodal_arr(content: List[str | Image],
+                           text_formatter: Callable[[str], Any] = None,
+                           image_formatter: Callable[[Image], Any] = None
+                           ) -> List[Dict[str, str]]:
     content_arr = []
     for c in content:
         if isinstance(c, str):
-            content_arr.append({'type': 'text', 'text': c})
+            if text_formatter is None:
+                content_arr.append({'type': 'text', 'text': c})
+            else:
+                content_arr.append(text_formatter(c))
         elif isinstance(c, Image):
             c: Image
-            url = image_to_data_uri(c)
-            content_arr.append({'type': 'image_url', 'image_url':
-                {'url': url}})
+            if image_formatter is None:
+                url = image_to_data_uri(c)
+                content_arr.append({'type': 'image_url', 'image_url':
+                    {'url': url}})
+            else:
+                content_arr.append(image_formatter(c))
     return content_arr
 
 

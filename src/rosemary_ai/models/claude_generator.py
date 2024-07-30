@@ -6,6 +6,22 @@ from .generator import AbstractContentGenerator
 from anthropic import Anthropic, NOT_GIVEN, AsyncAnthropic
 
 from .._logger import LOGGER
+from .._utils.image import _image_to_base64
+from ..multi_modal.image import Image
+
+
+def _image_to_form(image: Image) -> Dict[str, Any]:
+    content = {}
+    if image.is_url:
+        raise NotImplementedError('Claude does not support image URL.')
+    content['type'] = 'image'
+    content['source'] = {
+        'type': 'base64',
+        'media_type': image.mimetype,
+        'data': _image_to_base64(image)
+    }
+
+    return content
 
 
 class ClaudeChatGenerator(AbstractContentGenerator[str]):
@@ -15,7 +31,7 @@ class ClaudeChatGenerator(AbstractContentGenerator[str]):
 
     def _set_up(self, data: Dict[str, str | List[Dict[str, str | List]]],
                 options: Dict[str, Any], dry_run: bool, api_key: str) -> Tuple:
-        messages = shape_messages(data.pop('messages'))
+        messages = shape_messages(data.pop('messages'), None, _image_to_form)
 
         data: Dict[str, List[str]]
         update_options(options, data, CHAT_OPTION_TYPES)

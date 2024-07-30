@@ -44,18 +44,25 @@ class FormatExecutor(Executor):
             value = str(value.evaluate(variables))
 
         if self.scope_stack and isinstance(self.scope_stack[-1], list):
-            self.scope_stack[-1].append(value)
+            if self.scope_stack[-1][-1] and isinstance(self.scope_stack[-1][-1], str) and isinstance(value, str):
+                self.scope_stack[-1][-1] += value
+            else:
+                self.scope_stack[-1].append(value)
 
-        elif isinstance(value, str):
+        elif not isinstance(value, Image):
             if self.scope_stack[-1] is None:
                 self.scope_stack[-1] = value
-            elif isinstance(self.scope_stack[-1], str):
+            elif isinstance(self.scope_stack[-1], str) and isinstance(value, str):
                 self.scope_stack[-1] += value
+            else:
+                self.scope_stack[-1] = value
         else:
             if self.scope_stack[-1] is None:
                 self.scope_stack[-1] = [value]
             elif isinstance(self.scope_stack[-1], str):
                 self.scope_stack[-1] = [self.scope_stack[-1], value]
+            else:
+                self.scope_stack[-1] = [value]
 
         return True
 

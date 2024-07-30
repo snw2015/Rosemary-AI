@@ -326,7 +326,13 @@ def traverse(curr_env: Environment, element: RmlElement, executor: Executor) -> 
                 check_invalid_attributes(element, RESERVED_ATTR_NAMES['list-item'])
 
                 executor.begin_scope('list_item')
-                succeed = traverse_all(curr_env, element.children, executor)
+
+                if 'value' in element.attributes:
+                    value = element.attributes['value']
+                    succeed = executor.execute(value, curr_env.context)
+                else:
+                    succeed = traverse_all(curr_env, element.children, executor)
+
                 executor.end_scope('list_item', succeed)
 
                 return succeed
@@ -343,7 +349,13 @@ def traverse(curr_env: Environment, element: RmlElement, executor: Executor) -> 
                     key = _eval(element.attributes['key_eval'], curr_env.context)
 
                 executor.begin_scope('dict_item', key)
-                succeed = traverse_all(curr_env, element.children, executor)
+
+                if 'value' in element.attributes:
+                    value = element.attributes['value']
+                    succeed = executor.execute(value, curr_env.context)
+                else:
+                    succeed = traverse_all(curr_env, element.children, executor)
+
                 executor.end_scope('dict_item', succeed)
 
                 return succeed
