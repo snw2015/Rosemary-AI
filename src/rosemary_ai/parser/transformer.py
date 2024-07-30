@@ -96,6 +96,7 @@ class TreeToRmlTreeTransformer(Transformer):
         element = RmlElement(False, items[0])
         element.attributes = items[1]
         element.children = [child for child in items[2].children if child is not None]
+
         return element
 
     def element_indicator(self, items: List[str]) -> Tuple[str, ...]:  # noqa

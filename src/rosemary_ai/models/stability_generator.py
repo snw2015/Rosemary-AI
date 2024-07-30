@@ -4,7 +4,6 @@ import httpx
 import requests
 from httpx import AsyncClient
 
-from ._option_types import STABLE_GEN_V2_OPTION_TYPES, STABLE_GEN_V1_OPTION_TYPES
 from ._utils import update_options, check_response_status
 from .generator import AbstractContentGenerator
 from ..exceptions import RmlFormatException
@@ -40,7 +39,8 @@ class StabilityImageGenerator(AbstractContentGenerator[bytes]):
             raise RmlFormatException('Prompt must only contain string.')
 
         data: Dict[str, List[str]]
-        update_options(options, data, STABLE_GEN_V2_OPTION_TYPES)
+        # update_options(options, data, STABLE_GEN_V2_OPTION_TYPES)
+        update_options(options, data)
 
         LOGGER.info(f'Sending prompt to {self.model_name}: "{prompt}".')
         LOGGER.debug(f'Options: {options}.')
@@ -147,7 +147,8 @@ class StabilityV1ImageGenerator(AbstractContentGenerator[bytes]):
                 prompt['weight'] = float(prompt['weight'])
 
         data: Dict[str, List[str]]
-        update_options(options, data, STABLE_GEN_V1_OPTION_TYPES)
+        # update_options(options, data, STABLE_GEN_V1_OPTION_TYPES)
+        update_options(options, data)
 
         LOGGER.info(f'Sending prompt to {self.model_name}: "{prompts}".')
         LOGGER.debug(f'Options: {options}.')

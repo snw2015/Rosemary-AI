@@ -44,18 +44,25 @@ class FormatExecutor(Executor):
             value = str(value.evaluate(variables))
 
         if self.scope_stack and isinstance(self.scope_stack[-1], list):
-            self.scope_stack[-1].append(value)
+            if self.scope_stack[-1][-1] and isinstance(self.scope_stack[-1][-1], str) and isinstance(value, str):
+                self.scope_stack[-1][-1] += value
+            else:
+                self.scope_stack[-1].append(value)
 
-        elif isinstance(value, str):
+        elif not isinstance(value, Image):
             if self.scope_stack[-1] is None:
                 self.scope_stack[-1] = value
-            elif isinstance(self.scope_stack[-1], str):
+            elif isinstance(self.scope_stack[-1], str) and isinstance(value, str):
                 self.scope_stack[-1] += value
+            else:
+                self.scope_stack[-1] = value
         else:
             if self.scope_stack[-1] is None:
                 self.scope_stack[-1] = [value]
             elif isinstance(self.scope_stack[-1], str):
                 self.scope_stack[-1] = [self.scope_stack[-1], value]
+            else:
+                self.scope_stack[-1] = [value]
 
         return True
 
@@ -67,10 +74,14 @@ class FormatExecutor(Executor):
 
     def begin_scope(self, scope_type: str, key=None):
         if scope_type == 'list':
-            assert self.scope_stack[-1] is None
+            if self.scope_stack[-1] is not None:
+                raise RmlFormatException('"list" must be put directly under the root, '
+                                         'in a "dict-item" or a "list-item".')
             self.scope_stack[-1] = []
         elif scope_type == 'dict':
-            assert self.scope_stack[-1] is None
+            if self.scope_stack[-1] is not None:
+                raise RmlFormatException('"dict" must be put directly under the root, '
+                                         'in a "dict-item" or a "list-item".')
             self.scope_stack[-1] = {}
         elif scope_type == 'list_item':
             if self.scope_stack[-1] is None or not isinstance(self.scope_stack[-1], list):

@@ -14,3 +14,7 @@
     <import path="_sd.rml" element="sd-v1, sd-v2"/>
     <import path="_gpt.rml" element="image.generate" as="dall-e"/>
 </corolla>
+
+<corolla name="http">
+    <import path="_http.rml" element="request"/>
+</corolla>

@@ -1,0 +1,25 @@
+<template name="request" slot="data(name, value), file(name, value)">
+    <dict>
+        <dict-item key="data">
+            <dict>
+                <for slot="data">
+                    <if cond="value is None">
+                        <dict-item key_eval="name">
+                            <data/>
+                        </dict-item>
+                    </if>
+                    <if cond="value is not None">
+                        <dict-item key_eval="name" value="value"/>
+                    </if>
+                </for>
+            </dict>
+        </dict-item>
+        <dict-item key="files">
+            <dict>
+                <for slot="file">
+                    <dict-item key_eval="name" value="value"/>
+                </for>
+            </dict>
+        </dict-item>
+    </dict>
+</template>
