@@ -328,7 +328,7 @@ def traverse(curr_env: Environment, element: RmlElement, executor: Executor) -> 
                 executor.begin_scope('list_item')
 
                 if 'value' in element.attributes:
-                    value = element.attributes['value']
+                    value = curr_env.eval(element.attributes['value'])
                     succeed = executor.execute(value, curr_env.context)
                 else:
                     succeed = traverse_all(curr_env, element.children, executor)
@@ -351,7 +351,7 @@ def traverse(curr_env: Environment, element: RmlElement, executor: Executor) -> 
                 executor.begin_scope('dict_item', key)
 
                 if 'value' in element.attributes:
-                    value = element.attributes['value']
+                    value = curr_env.eval(element.attributes['value'])
                     succeed = executor.execute(value, curr_env.context)
                 else:
                     succeed = traverse_all(curr_env, element.children, executor)

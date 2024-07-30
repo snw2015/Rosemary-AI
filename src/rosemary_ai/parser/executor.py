@@ -74,10 +74,14 @@ class FormatExecutor(Executor):
 
     def begin_scope(self, scope_type: str, key=None):
         if scope_type == 'list':
-            assert self.scope_stack[-1] is None
+            if self.scope_stack[-1] is not None:
+                raise RmlFormatException('"list" must be put directly under the root, '
+                                         'in a "dict-item" or a "list-item".')
             self.scope_stack[-1] = []
         elif scope_type == 'dict':
-            assert self.scope_stack[-1] is None
+            if self.scope_stack[-1] is not None:
+                raise RmlFormatException('"dict" must be put directly under the root, '
+                                         'in a "dict-item" or a "list-item".')
             self.scope_stack[-1] = {}
         elif scope_type == 'list_item':
             if self.scope_stack[-1] is None or not isinstance(self.scope_stack[-1], list):

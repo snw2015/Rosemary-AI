@@ -1,7 +1,5 @@
 <template name="option" param="name, value">
     <if cond="value is not None">
-        <dict-item key_eval="name">
-            {value}
-        </dict-item>
+        <dict-item key_eval="name" value="value"/>
     </if>
 </template>

@@ -47,19 +47,23 @@ def _create_multimodal_arr(content: List[str | Image],
     return content_arr
 
 
-def update_options(options: Dict[str, Any], new_options: Dict[str, List[str]], option_types: Dict[str, Any]):
+def update_options(options: Dict[str, Any], new_options: Dict[str, List[str]], option_types: Dict[str, Any] = None):
     """
     Update options with new options. The new options is raw data from formatter,
     so a list of string should be converted to a string.
     It will Also cast the values to the correct type.
     """
-    for key, value in new_options.items():
-        if key not in options:
-            if not isinstance(value, str):
-                raise RmlFormatException(f'Unexpected value "{value}" for option {key}.')
-            if key in option_types:
-                value = option_types[key](value)
-            options[key] = value
+
+    # if option_types is None:
+    #     option_types = {}
+
+    # for key, value in new_options.items():
+        # if key not in options:
+            # if key in option_types:
+            #     value = option_types[key](value)
+            # options[key] = value
+
+    options.update(new_options)
 
 
 def _system_prompt_in_messages(messages):

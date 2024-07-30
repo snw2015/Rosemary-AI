@@ -1,6 +1,5 @@
 from typing import Generator, Dict, Any, List, Tuple
 
-from ._option_types import CHAT_OPTION_TYPES, GPT_IMAGE_OPTION_TYPES, EMBEDDING_OPTION_TYPES
 from ._utils import shape_messages, update_options
 from ..exceptions import RmlFormatException
 from .generator import AbstractContentGenerator
@@ -19,7 +18,8 @@ class GPTChatGenerator(AbstractContentGenerator[str]):
         messages = shape_messages(data.pop('messages'))
 
         data: Dict[str, List[str]]
-        update_options(options, data, CHAT_OPTION_TYPES)
+        # update_options(options, data, CHAT_OPTION_TYPES)
+        update_options(options, data)
 
         LOGGER.info(f'Sending messages to {self.model_name}: "{messages}".')
         LOGGER.debug(f'Options: {options}.')
@@ -126,7 +126,8 @@ class GPTImageGenerator(AbstractContentGenerator[str]):
             raise RmlFormatException('Prompt must only contain string.')
 
         data: Dict[str, List[str]]
-        update_options(options, data, GPT_IMAGE_OPTION_TYPES)
+        # update_options(options, data, GPT_IMAGE_OPTION_TYPES)
+        update_options(options, data)
 
         LOGGER.info(f'Sending prompt to {self.model_name}: "{prompt}".')
         LOGGER.debug(f'Options: {options}.')
@@ -199,7 +200,8 @@ class GPTEmbeddingGenerator(AbstractContentGenerator[List[float]]):
             raise RmlFormatException('Embedding input must only contain string.')
 
         data: Dict[str, List[str]]
-        update_options(options, data, EMBEDDING_OPTION_TYPES)
+        # update_options(options, data, EMBEDDING_OPTION_TYPES)
+        update_options(options, data)
 
         LOGGER.info(f'Sending input to {self.model_name}: "{prompt}".')
         LOGGER.debug(f'Options: {options}.')
