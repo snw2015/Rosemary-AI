@@ -1,3 +1,4 @@
+import inspect
 from typing import TypeAlias, Dict, Any
 
 from ..exceptions import ExecutionException
@@ -7,7 +8,7 @@ VariableContext: TypeAlias = Dict[str, Any]
 
 class DataExpression:
     def __init__(self, value: str):
-        self._value = value
+        self._value = inspect.cleandoc(value)
 
     def value(self):
         return self._value
@@ -20,6 +21,8 @@ class DataExpression:
                 return eval(self._value, context.copy())
             else:
                 return eval(self._value, context)
+        except AssertionError as e:
+            raise e
         except Exception as e:
             raise ExecutionException(f'Failed to evaluate Python code "{self._value}": {e}.')
 
@@ -29,6 +32,8 @@ class DataExpression:
                 exec(self._value, context.copy())
             else:
                 exec(self._value, context)
+        except AssertionError as e:
+            raise e
         except Exception as e:
             raise ExecutionException(f'Failed to execute Python code "{self._value}": {e}.')
 
