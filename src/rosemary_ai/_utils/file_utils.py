@@ -15,7 +15,7 @@ def read_and_close_file(path: str | Path) -> str:
     if isinstance(path, str):
         path = Path(path)
     try:
-        text = path.read_text()
+        text = path.read_text(encoding='utf-8')
     except FileNotFoundError:
         raise FileNotFoundError(f'File {path} not found')
 
