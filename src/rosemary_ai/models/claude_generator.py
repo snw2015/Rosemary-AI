@@ -2,11 +2,11 @@ from typing import Generator, Dict, Any, List, Tuple
 
 from ._utils import shape_messages, update_options, reform_system_message
 from .generator import AbstractContentGenerator
+from ..multi_modal.image import Image
+from .._utils.image import _image_to_base64
 from anthropic import Anthropic, NOT_GIVEN, AsyncAnthropic
 
 from .._logger import LOGGER
-from .._utils.image import _image_to_base64
-from ..multi_modal.image import Image
 
 
 def _image_to_form(image: Image) -> Dict[str, Any]:
@@ -28,7 +28,7 @@ class ClaudeChatGenerator(AbstractContentGenerator[str]):
         super().__init__('Anthropic')
         self.model_name = model_name
 
-    def _set_up(self, data: Dict[str, str | List[Dict[str, str | List]]],
+    def _set_up(self, data: Dict[str, str | List[Dict[str, str | List | Image]]],
                 options: Dict[str, Any], dry_run: bool, api_key: str) -> Tuple:
         messages = shape_messages(data.pop('messages'), None, _image_to_form)
 

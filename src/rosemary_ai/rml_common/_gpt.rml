@@ -16,3 +16,24 @@
         </dict>
     </template>
 </corolla>
+
+<corolla name="audio">
+    <template name="stt" param="file_path, language, temperature, prompt">
+        <dict>
+            <option name="'file_path'" value="file_path"/>
+            <option name="'language'" value="language"/>
+            <option name="'temperature'" value="temperature"/>
+            <option name="'prompt'" value="prompt"/>
+        </dict>
+    </template>
+
+    <template name="tts" param="voice, format" slot="@text">
+        <dict>
+            <dict-item key="text">
+                <text/>
+            </dict-item>
+            <option name="'voice'" value="voice"/>
+            <option name="'response_format'" value="format"/>
+        </dict>
+    </template>
+</corolla>

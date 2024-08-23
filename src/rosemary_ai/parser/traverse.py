@@ -389,6 +389,20 @@ def traverse(curr_env: Environment, element: RmlElement, executor: Executor) -> 
 
                 executor.execute(Image(src), curr_env.context)
                 return True
+            case ('file', ):
+                check_invalid_attributes(element, RESERVED_ATTR_NAMES['file'])
+
+                if 'src' not in element.attributes and 'src_eval' not in element.attributes:
+                    raise RmlFormatException('File must have a source, given by "src" or "src_eval" attribute.')
+
+                src = None
+                if 'src' in element.attributes:
+                    src = element.attributes['src']
+                if 'src_eval' in element.attributes:
+                    src = _eval(element.attributes['src_eval'], curr_env.context)
+
+                executor.execute(open(src, 'rb'), curr_env.context)
+                return True
             case ('if',):
                 check_invalid_attributes(element, RESERVED_ATTR_NAMES['if'])
 
