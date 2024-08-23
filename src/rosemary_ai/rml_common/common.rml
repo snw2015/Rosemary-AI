@@ -2,6 +2,7 @@
 <corolla name="gpt">
     <import path="_text.rml" element="chat"/>
     <import path="_gpt.rml" element="image"/>
+    <import path="_gpt.rml" element="audio"/>
 </corolla>
 
 

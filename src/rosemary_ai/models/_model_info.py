@@ -51,3 +51,20 @@ OPENAI_EMBEDDINGS = {
     'text-embedding-3-large': ['gpt-embed-3l'],
     'text-embedding-ada-002': ['gpt-embed-ada'],
 }
+
+# STT models
+OPENAI_WHISPER = {
+    'whisper-1': ['whisper'],
+}
+
+# TTS models
+OPENAI_TTS = {
+    'tts-1': ['open-ai-tts'],
+    'tts-1-hd': ['open-ai-tts-hd'],
+}
+
+# Moderation models
+OPENAI_MODERATION = {
+    'text-moderation-stable': ['gpt-mod', 'gpt-mod-stable'],
+    'text-moderation-latest': ['gpt-mod-latest'],
+}

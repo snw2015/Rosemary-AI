@@ -1,5 +1,5 @@
 from abc import ABCMeta, abstractmethod
-from typing import TypeAlias, Dict, Any, List, Tuple
+from typing import TypeAlias, Dict, Any, List, Tuple, BinaryIO
 
 from ..exceptions import RmlFormatException
 from ..multi_modal.image import Image
@@ -7,7 +7,7 @@ from .data_expression import DataExpression
 from .environment import VariableContext
 
 IsPlainText: TypeAlias = bool
-OutputValue: TypeAlias = str | Image
+OutputValue: TypeAlias = str | Image | bytes
 Value: TypeAlias = OutputValue | DataExpression
 IsSucceed: TypeAlias = bool
 
@@ -43,26 +43,28 @@ class FormatExecutor(Executor):
         if isinstance(value, DataExpression):
             value = str(value.evaluate(variables))
 
-        if self.scope_stack and isinstance(self.scope_stack[-1], list):
-            if self.scope_stack[-1][-1] and isinstance(self.scope_stack[-1][-1], str) and isinstance(value, str):
-                self.scope_stack[-1][-1] += value
-            else:
-                self.scope_stack[-1].append(value)
-
-        elif not isinstance(value, Image):
-            if self.scope_stack[-1] is None:
-                self.scope_stack[-1] = value
-            elif isinstance(self.scope_stack[-1], str) and isinstance(value, str):
-                self.scope_stack[-1] += value
-            else:
-                self.scope_stack[-1] = value
+        """
+        The object will be handled as follows:
+        1. If the object is a string, it will try to concatenate with the last object in the stack 
+            (either a only string object or a list object with the last element as a string).
+        2. If the object is not a string, it will be appended to the list object in the stack.
+        3. As an exception, if there is only one object in this scope, the object will directly be put into the stack.
+        For example:
+        1. Inputs are three strings: 'a', 'b', 'c', the stored item will be 'abc'.
+        2. Inputs are one image 'a.png' with two string 'b', 'c', the stored item will be [Image('a.png'), 'bc'].
+        3. Inputs are two images 'a.png' and 'b.png', the stored item will be [Image('a.png'), Image('b.png')].
+        As long as the value type does not support list, the item will not be a list deeper than one level.
+        """
+        if self.scope_stack[-1] is None:
+            self.scope_stack[-1] = value
+        elif isinstance(self.scope_stack[-1], str) and isinstance(value, str):
+            self.scope_stack[-1] += value
+        elif not isinstance(self.scope_stack[-1], list):
+            self.scope_stack[-1] = [self.scope_stack[-1], value]
+        elif isinstance(value, str) and isinstance(self.scope_stack[-1][-1], str):
+            self.scope_stack[-1][-1] += value
         else:
-            if self.scope_stack[-1] is None:
-                self.scope_stack[-1] = [value]
-            elif isinstance(self.scope_stack[-1], str):
-                self.scope_stack[-1] = [self.scope_stack[-1], value]
-            else:
-                self.scope_stack[-1] = [value]
+            self.scope_stack[-1].append(value)
 
         return True
 

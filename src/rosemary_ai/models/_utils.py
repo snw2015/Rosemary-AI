@@ -18,6 +18,9 @@ def shape_messages(data: List[Dict[str, str | List[str | Image]]],
         for role, content in d.items():
             if isinstance(content, str):
                 messages.append({'role': role, 'content': content})
+            if isinstance(content, Image):
+                content_arr = _create_multimodal_arr([content], text_formatter, image_formatter)
+                messages.append({'role': role, 'content': content_arr})
             if isinstance(content, List):
                 content_arr = _create_multimodal_arr(content, text_formatter, image_formatter)
                 messages.append({'role': role, 'content': content_arr})
@@ -58,10 +61,10 @@ def update_options(options: Dict[str, Any], new_options: Dict[str, List[str]], o
     #     option_types = {}
 
     # for key, value in new_options.items():
-        # if key not in options:
-            # if key in option_types:
-            #     value = option_types[key](value)
-            # options[key] = value
+    # if key not in options:
+    # if key in option_types:
+    #     value = option_types[key](value)
+    # options[key] = value
 
     options.update(new_options)
 

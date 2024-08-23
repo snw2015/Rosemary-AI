@@ -1,7 +1,11 @@
-from typing import Generator, Dict, Any, List, Tuple
+from typing import Generator, Dict, Any, List, Tuple, BinaryIO
+import io
+
+from openai.types import Moderation
 
 from ._utils import shape_messages, update_options
 from ..exceptions import RmlFormatException
+from ..multi_modal.image import Image
 from .generator import AbstractContentGenerator
 from openai import OpenAI, AsyncOpenAI
 
@@ -13,12 +17,11 @@ class GPTChatGenerator(AbstractContentGenerator[str]):
         super().__init__('OpenAI')
         self.model_name = model_name
 
-    def _set_up(self, data: Dict[str, str | List[Dict[str, str | List]]],
+    def _set_up(self, data: Dict[str, str | List[Dict[str, str | List | Image]]],
                 options: Dict[str, Any], dry_run: bool, api_key: str) -> Tuple:
         messages = shape_messages(data.pop('messages'))
 
         data: Dict[str, List[str]]
-        # update_options(options, data, CHAT_OPTION_TYPES)
         update_options(options, data)
 
         LOGGER.info(f'Sending messages to {self.model_name}: "{messages}".')
@@ -126,7 +129,6 @@ class GPTImageGenerator(AbstractContentGenerator[str]):
             raise RmlFormatException('Prompt must only contain string.')
 
         data: Dict[str, List[str]]
-        # update_options(options, data, GPT_IMAGE_OPTION_TYPES)
         update_options(options, data)
 
         LOGGER.info(f'Sending prompt to {self.model_name}: "{prompt}".')
@@ -262,3 +264,263 @@ class GPTEmbeddingGenerator(AbstractContentGenerator[List[float]]):
                                     options: Dict[str, Any],
                                     dry_run: bool, api_key: str = None) -> Generator[str, None, None]:
         raise NotImplementedError('Stream mode is not supported for embeddings.')
+
+
+class WhisperGenerator(AbstractContentGenerator[str]):
+    def __init__(self, model_name: str):
+        super().__init__('OpenAI')
+        self.model_name = model_name
+
+    def _set_up(self, data: Dict[str, Any],
+                options: Dict[str, Any], dry_run: bool, api_key: str) -> Tuple:
+        file_path = data.pop('file_path')
+        if not isinstance(file_path, str):
+            raise RmlFormatException('Whisper input must contain the audio file path as str.')
+
+        data: Dict[str, List[str]]
+        update_options(options, data)
+
+        LOGGER.info(f'Sending input to {self.model_name}: "{file_path}".')
+        LOGGER.debug(f'Options: {options}.')
+
+        if dry_run:
+            LOGGER.info('Dry run mode enabled. Skipping API call.')
+
+        api_key = self.get_api_key(api_key)
+
+        return file_path, options, api_key
+
+    def generate(self, data: Dict[str, Any],
+                 options: Dict[str, Any], dry_run: bool, api_key: str = None) -> str:
+        file_path, options, api_key = self._set_up(data, options, dry_run, api_key)
+
+        with open(file_path, 'rb') as file:
+            if dry_run:
+                return ''
+
+            client = OpenAI(api_key=api_key)
+            response = client.audio.transcriptions.create(
+                model=self.model_name,
+                file=file,
+                **options
+            )
+
+            LOGGER.info(f'Received response from {self.model_name}: "{response}".')
+
+            result = response.text
+
+            return result
+
+    async def generate_async(self, data: Dict[str, Any],
+                             options: Dict[str, Any], dry_run: bool, api_key: str = None) -> str:
+
+        file_path, options, api_key = self._set_up(data, options, dry_run, api_key)
+
+        with open(file_path, 'rb') as file:
+            if dry_run:
+                return ''
+
+            client = AsyncOpenAI(api_key=api_key)
+            response = await client.audio.transcriptions.create(
+                model=self.model_name,
+                file=file,
+                **options
+            )
+
+            LOGGER.info(f'Received response from {self.model_name}: "{response}".')
+
+            result = response.text
+
+            return result
+
+    def generate_stream(self, data: Dict[str, Any],
+                        options: Dict[str, Any],
+                        dry_run: bool, api_key: str = None) -> Generator[str, None, None]:
+        raise NotImplementedError('Stream mode is not supported for Whisper.')
+
+    async def generate_stream_async(self, data: Dict[str, Any],
+                                    options: Dict[str, Any],
+                                    dry_run: bool, api_key: str = None) -> Generator[str, None, None]:
+        raise NotImplementedError('Stream mode is not supported for Whisper.')
+
+
+class OpenAITTSGenerator(AbstractContentGenerator[bytes]):
+    def __init__(self, model_name: str):
+        super().__init__('OpenAI')
+        self.model_name = model_name
+
+    def _set_up(self, data: Dict[str, Any],
+                options: Dict[str, Any], dry_run: bool, api_key: str) -> Tuple:
+        text = data.pop('text')
+        if not isinstance(text, str):
+            raise RmlFormatException('TTS input must contain the text as str.')
+
+        data: Dict[str, List[str]]
+        update_options(options, data)
+
+        LOGGER.info(f'Sending input to {self.model_name}: "{text}".')
+        LOGGER.debug(f'Options: {options}.')
+
+        if dry_run:
+            LOGGER.info('Dry run mode enabled. Skipping API call.')
+
+        api_key = self.get_api_key(api_key)
+
+        return text, options, api_key
+
+    def generate(self, data: Dict[str, Any],
+                 options: Dict[str, Any], dry_run: bool, api_key: str = None) -> bytes:
+        text, options, api_key = self._set_up(data, options, dry_run, api_key)
+
+        if dry_run:
+            return b''
+
+        client = OpenAI(api_key=api_key)
+        response = client.audio.speech.create(
+            model=self.model_name,
+            input=text,
+            **options
+        )
+
+        LOGGER.info(f'Received response from {self.model_name}: "{response}".')
+
+        result = b''
+        for data in response.iter_bytes():
+            result += data
+
+        return result
+
+    async def generate_async(self, data: Dict[str, Any],
+                             options: Dict[str, Any], dry_run: bool, api_key: str = None) -> bytes:
+        text, options, api_key = self._set_up(data, options, dry_run, api_key)
+
+        if dry_run:
+            return b''
+
+        client = AsyncOpenAI(api_key=api_key)
+        response = await client.audio.speech.create(
+            model=self.model_name,
+            input=text,
+            **options
+        )
+
+        LOGGER.info(f'Received response from {self.model_name}: "{response}".')
+
+        result = b''
+
+        async for data in await response.aiter_bytes():
+            result += data
+
+        return result
+
+    def generate_stream(self, data: Dict[str, Any],
+                        options: Dict[str, Any],
+                        dry_run: bool, api_key: str = None) -> Generator[bytes, None, None]:
+        text, options, api_key = self._set_up(data, options, dry_run, api_key)
+
+        if dry_run:
+            return
+
+        client = OpenAI(api_key=api_key)
+        response = client.audio.speech.create(
+            model=self.model_name,
+            input=text,
+            **options
+        )
+
+        LOGGER.info(f'Received response from {self.model_name}: "{response}".')
+
+        result = b''
+        for data in response.iter_bytes():
+            yield data
+
+    async def generate_stream_async(self, data: Dict[str, Any],
+                                    options: Dict[str, Any],
+                                    dry_run: bool, api_key: str = None) -> Generator[bytes, None, None]:
+        text, options, api_key = self._set_up(data, options, dry_run, api_key)
+
+        if dry_run:
+            return
+
+        client = AsyncOpenAI(api_key=api_key)
+        response = await client.audio.speech.create(
+            model=self.model_name,
+            input=text,
+            **options
+        )
+
+        LOGGER.info(f'Received response from {self.model_name}: "{response}".')
+
+        result = b''
+
+        async for data in await response.aiter_bytes():
+            yield data
+
+
+class GPTModerationGenerator(AbstractContentGenerator[Moderation]):
+    def __init__(self, model_name: str):
+        super().__init__('OpenAI')
+        self.model_name = model_name
+
+    def _set_up(self, data: str,
+                options: Dict[str, Any], dry_run: bool, api_key: str) -> Tuple:
+        text = data
+
+        LOGGER.info(f'Sending input to {self.model_name}: "{text}".')
+        LOGGER.debug(f'Options: {options}.')
+
+        if dry_run:
+            LOGGER.info('Dry run mode enabled. Skipping API call.')
+
+        api_key = self.get_api_key(api_key)
+
+        return text, options, api_key
+
+    def generate(self, data: str,
+                 options: Dict[str, Any], dry_run: bool, api_key: str = None) -> Moderation:
+        text, options, api_key = self._set_up(data, options, dry_run, api_key)
+
+        if dry_run:
+            return None
+
+        client = OpenAI(api_key=api_key)
+        response = client.moderations.create(
+            model=self.model_name,
+            input=text,
+        )
+
+        LOGGER.info(f'Received response from {self.model_name}: "{response}".')
+
+        result = response.results[0]
+
+        return result
+
+    async def generate_async(self, data: str,
+                             options: Dict[str, Any], dry_run: bool, api_key: str = None) -> Moderation:
+        text, options, api_key = self._set_up(data, options, dry_run, api_key)
+
+        if dry_run:
+            return None
+
+        client = AsyncOpenAI(api_key=api_key)
+        response = await client.moderations.create(
+            model=self.model_name,
+            input=text
+        )
+
+        LOGGER.info(f'Received response from {self.model_name}: "{response}".')
+
+        result = response.results[0]
+
+        return result
+
+    def generate_stream(self, data: str,
+                        options: Dict[str, Any],
+                        dry_run: bool, api_key: str = None) -> Generator[Moderation, None, None]:
+        raise NotImplementedError('Stream mode is not supported for moderation.')
+
+    async def generate_stream_async(self, data: str,
+                                    options: Dict[str, Any],
+                                    dry_run: bool, api_key: str = None) -> Generator[Moderation, None, None]:
+        raise NotImplementedError('Stream mode is not supported for moderation.')
+

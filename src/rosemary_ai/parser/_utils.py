@@ -9,6 +9,7 @@ RESERVED_ATTR_NAMES = {
     'formatter': set(),
     'parser': {'strict'},
     'img': {'src', 'src_eval'},
+    'file': {'src', 'src_eval'},
     'if': {'cond'},
     'for': {'range', 'in', 'var', 'slot', 'try'},
     'optional': {'required'},
