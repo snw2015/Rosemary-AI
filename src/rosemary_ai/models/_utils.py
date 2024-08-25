@@ -55,6 +55,8 @@ def update_options(options: Dict[str, Any], new_options: Dict[str, List[str]], o
     Update options with new options. The new options is raw data from formatter,
     so a list of string should be converted to a string.
     It will Also cast the values to the correct type.
+
+    Legacy: Now we assume that the new options are already formatted.
     """
 
     # if option_types is None:

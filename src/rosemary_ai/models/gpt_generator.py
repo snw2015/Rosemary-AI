@@ -1,18 +1,59 @@
-from typing import Generator, Dict, Any, List, Tuple, BinaryIO
-import io
+import inspect
+from typing import Generator, Dict, Any, List, Tuple, Callable, TypeAlias
 
+from openai import OpenAI, AsyncOpenAI
 from openai.types import Moderation
+from openai.types.chat import ChatCompletionMessageToolCall
+from openai.types.chat.chat_completion import ChatCompletion
+from openai.types.chat.chat_completion_chunk import ChoiceDelta
+from openai.types.chat.chat_completion_message_tool_call import Function
 
 from ._utils import shape_messages, update_options
-from ..exceptions import RmlFormatException
-from ..multi_modal.image import Image
 from .generator import AbstractContentGenerator
-from openai import OpenAI, AsyncOpenAI
-
 from .._logger import LOGGER
+from ..exceptions import RmlFormatException, RequestFailedException
+from ..multi_modal.image import Image
+
+GptReturnType: TypeAlias = str | list[ChatCompletionMessageToolCall] | Dict[str, Any]
 
 
-class GPTChatGenerator(AbstractContentGenerator[str]):
+def _concatenate_delta() -> Generator[GptReturnType, ChoiceDelta, None]:
+    text = None
+    tool_calls = []
+
+    while True:
+        if text:
+            delta = yield text  # type: ignore
+        else:
+            delta = yield tool_calls  # type: ignore
+        delta: ChoiceDelta
+
+        if delta.content:
+            if not text:
+                text = ''
+            text += delta.content
+        elif delta.tool_calls:
+            for delta_tool_call in delta.tool_calls:
+                tool_id = delta_tool_call.id
+                arguments = delta_tool_call.function.arguments
+                name = delta_tool_call.function.name
+
+                if name is None and arguments is not None:  # function exists and arguments need to be updated
+                    tool_call = tool_calls[-1]
+                    tool_call.function.arguments += arguments
+                elif name is not None:  # new function
+                    tool_call = ChatCompletionMessageToolCall(
+                        id=tool_id,
+                        function=Function(
+                            arguments='',
+                            name=name,
+                        ),
+                        type='function'
+                    )
+                    tool_calls.append(tool_call)
+
+
+class GPTChatGenerator(AbstractContentGenerator[GptReturnType]):
     def __init__(self, model_name: str):
         super().__init__('OpenAI')
         self.model_name = model_name
@@ -24,97 +65,177 @@ class GPTChatGenerator(AbstractContentGenerator[str]):
         data: Dict[str, List[str]]
         update_options(options, data)
 
-        LOGGER.info(f'Sending messages to {self.model_name}: "{messages}".')
-        LOGGER.debug(f'Options: {options}.')
+        if 'funcs' in options:
+            funcs = options.pop('funcs')
+            if not isinstance(funcs, list):
+                raise RmlFormatException('"funcs" parameter must be a list of functions.')
+            tools = []
+            for func in funcs:
+                if not isinstance(func, Callable):
+                    raise RmlFormatException('Each function in "funcs" must be a callable.')
+                else:
+                    # Turn the function into description
+                    params = inspect.signature(func).parameters
+                    properties = {}
+                    required = []
+                    for param_name in params:
+                        param = params[param_name]
+                        if param.annotation == inspect.Parameter.empty or param.annotation == str:
+                            param_type = 'string'
+                        elif param.annotation == int:
+                            param_type = 'integer'
+                        elif param.annotation == float:
+                            param_type = 'number'
+                        elif param.annotation == bool:
+                            param_type = 'boolean'
+                        else:
+                            raise RmlFormatException(
+                                f'Unsupported parameter type: {param.annotation} for function {func.__name__}. '
+                                f'For now, Rosemary only supports str, int, float, and bool.'
+                            )
+                        if param.default != inspect.Parameter.empty:
+                            LOGGER.warning(f'Function {func.__name__} has default value for parameter {param_name}. '
+                                           f'Rosemary does not support default value for now.')
+                        properties[param_name] = {
+                            'type': param_type
+                        }
+                        required.append(param_name)
+
+                    tool = {
+                        "type": "function",
+                        "function": {
+                            "name": func.__name__,
+                            "description": func.__doc__,
+                            "parameters": {
+                                "type": "object",
+                                "properties": properties,
+                                "required": required,
+                                "additionalProperties": False,
+                            }
+                        }
+                    }
+                    tools.append(tool)
+            options['tools'] = tools
+
+        return_json = False
+
+        if 'return_json' in options:
+            return_json = options.pop('return_json')
+
+        if return_json:
+            LOGGER.info(f'The "return_json" option is enabled. The messages and options sent to API will '
+                        f'be directly returned in JSON format.')
+        else:
+            LOGGER.info(f'Sending messages to {self.model_name}: "{messages}".')
+            LOGGER.debug(f'Options: {options}.')
 
         if dry_run:
             LOGGER.info('Dry run mode enabled. Skipping API call.')
 
         api_key = self.get_api_key(api_key)
 
-        return messages, options, api_key
+        return messages, options, api_key, return_json
+
+    def _get_json_request(self, messages: List[Dict[str, str | List]], options: Dict[str, Any]) -> Dict[str, Any]:
+        return {
+            'messages': messages,
+            'model': self.model_name,
+            **options
+        }
+
+    def _get_result_from_completion(self, completion: ChatCompletion) -> GptReturnType:
+        choice = completion.choices[0]
+
+        LOGGER.info(f'Received response from {self.model_name}: "{choice.message}".')
+
+        if choice.finish_reason == 'tool_calls':
+            return choice.message.tool_calls
+        elif choice.finish_reason == 'stop':
+            return choice.message.content
+        else:
+            raise RequestFailedException(f'Unexpected finish reason: {choice.finish_reason}.')
 
     def generate(self, data: Dict[str, str | List[Dict[str, str | List]]],
-                 options: Dict[str, Any], dry_run: bool, api_key: str = None) -> str:
-        messages, options, api_key = self._set_up(data, options, dry_run, api_key)
-
+                 options: Dict[str, Any], dry_run: bool, api_key: str = None) -> GptReturnType:
+        messages, options, api_key, return_json = self._set_up(data, options, dry_run, api_key)
         if dry_run:
             return ''
+
+        if return_json:
+            return self._get_json_request(messages, options)
 
         client = OpenAI(api_key=api_key)
         completion = client.chat.completions.create(
             model=self.model_name, messages=messages,
             **options)
 
-        LOGGER.info(f'Received response from {self.model_name}: "{completion.choices[0].message}".')
-
-        result = completion.choices[0].message.content
-
-        return result
+        return self._get_result_from_completion(completion)
 
     async def generate_async(self, data: Dict[str, str | List[Dict[str, str | List]]],
-                             options: Dict[str, Any], dry_run: bool, api_key: str = None) -> str:
-        messages, options, api_key = self._set_up(data, options, dry_run, api_key)
-
+                             options: Dict[str, Any], dry_run: bool, api_key: str = None) -> GptReturnType:
+        messages, options, api_key, return_json = self._set_up(data, options, dry_run, api_key)
         if dry_run:
             return ''
+
+        if return_json:
+            return self._get_json_request(messages, options)
 
         client = AsyncOpenAI(api_key=api_key)
         completion = await client.chat.completions.create(
             model=self.model_name, messages=messages,
             **options)
 
-        LOGGER.info(f'Received response from {self.model_name}: "{completion.choices[0].message}".')
-
-        result = completion.choices[0].message.content
-
-        return result
+        return self._get_result_from_completion(completion)
 
     def generate_stream(self, data: Dict[str, str | List[Dict[str, str | List]]],
                         options: Dict[str, Any],
-                        dry_run: bool, api_key: str = None) -> Generator[str, None, None]:
-        messages, options, api_key = self._set_up(data, options, dry_run, api_key)
-
+                        dry_run: bool, api_key: str = None) -> Generator[GptReturnType, None, None]:
+        messages, options, api_key, return_json = self._set_up(data, options, dry_run, api_key)
         if dry_run:
             return
+
+        if return_json:
+            raise NotImplementedError('Stream mode is not supported for JSON return.')
 
         client = OpenAI(api_key=api_key)
         completion_stream = client.chat.completions.create(model=self.model_name, messages=messages,
                                                            **options,
                                                            stream=True)
 
-        result = ''
+        delta_stream = _concatenate_delta()
+        next(delta_stream)
 
         for chunk in completion_stream:
-            LOGGER.info(f'Received response (streaming) from {self.model_name}: "{chunk.choices[0].delta}".')
+            delta = chunk.choices[0].delta
+            LOGGER.info(f'Received response (streaming) from {self.model_name}: "{delta}".')
 
-            delta = chunk.choices[0].delta.content
-            if delta is not None:
-                result += delta
-                yield result
+            if chunk.choices[0].finish_reason is None:
+                yield delta_stream.send(delta)
 
     async def generate_stream_async(self, data: Dict[str, str | List[Dict[str, str | List]]],
                                     options: Dict[str, Any],
-                                    dry_run: bool, api_key: str = None) -> Generator[str, None, None]:
-        messages, options, api_key = self._set_up(data, options, dry_run, api_key)
-
+                                    dry_run: bool, api_key: str = None) -> Generator[GptReturnType, None, None]:
+        messages, options, api_key, return_json = self._set_up(data, options, dry_run, api_key)
         if dry_run:
             return
+
+        if return_json:
+            raise NotImplementedError('Stream mode is not supported for JSON return.')
 
         client = AsyncOpenAI(api_key=api_key)
         completion_stream = await client.chat.completions.create(model=self.model_name, messages=messages,
                                                                  **options,
                                                                  stream=True)
 
-        result = ''
+        delta_stream = _concatenate_delta()
+        next(delta_stream)
 
         async for chunk in completion_stream:
             LOGGER.info(f'Received response (streaming) from {self.model_name}: "{chunk.choices[0].delta}".')
 
-            delta = chunk.choices[0].delta.content
+            delta = chunk.choices[0].delta
             if delta is not None:
-                result += delta
-                yield result
+                yield delta_stream.send(delta)
 
 
 class GPTImageGenerator(AbstractContentGenerator[str]):
@@ -430,9 +551,8 @@ class OpenAITTSGenerator(AbstractContentGenerator[bytes]):
 
         LOGGER.info(f'Received response from {self.model_name}: "{response}".')
 
-        result = b''
         for data in response.iter_bytes():
-            yield data
+            yield data  # For TTS, when directly return the byte stream for playing
 
     async def generate_stream_async(self, data: Dict[str, Any],
                                     options: Dict[str, Any],
@@ -451,13 +571,11 @@ class OpenAITTSGenerator(AbstractContentGenerator[bytes]):
 
         LOGGER.info(f'Received response from {self.model_name}: "{response}".')
 
-        result = b''
-
         async for data in await response.aiter_bytes():
-            yield data
+            yield data  # For TTS, when directly return the byte stream for playing
 
 
-class GPTModerationGenerator(AbstractContentGenerator[Moderation]):
+class GPTModerationGenerator(AbstractContentGenerator[Moderation | None]):
     def __init__(self, model_name: str):
         super().__init__('OpenAI')
         self.model_name = model_name
@@ -477,7 +595,7 @@ class GPTModerationGenerator(AbstractContentGenerator[Moderation]):
         return text, options, api_key
 
     def generate(self, data: str,
-                 options: Dict[str, Any], dry_run: bool, api_key: str = None) -> Moderation:
+                 options: Dict[str, Any], dry_run: bool, api_key: str = None) -> Moderation | None:
         text, options, api_key = self._set_up(data, options, dry_run, api_key)
 
         if dry_run:
@@ -496,7 +614,7 @@ class GPTModerationGenerator(AbstractContentGenerator[Moderation]):
         return result
 
     async def generate_async(self, data: str,
-                             options: Dict[str, Any], dry_run: bool, api_key: str = None) -> Moderation:
+                             options: Dict[str, Any], dry_run: bool, api_key: str = None) -> Moderation | None:
         text, options, api_key = self._set_up(data, options, dry_run, api_key)
 
         if dry_run:
@@ -523,4 +641,3 @@ class GPTModerationGenerator(AbstractContentGenerator[Moderation]):
                                     options: Dict[str, Any],
                                     dry_run: bool, api_key: str = None) -> Generator[Moderation, None, None]:
         raise NotImplementedError('Stream mode is not supported for moderation.')
-

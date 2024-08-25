@@ -1,5 +1,5 @@
 import typing
-from inspect import Signature
+from inspect import Signature, isclass
 from typing import Callable, Dict, Any, Tuple, Generator
 
 from ._global_settings import SETTINGS
@@ -342,10 +342,14 @@ class Rosemary:
         if signature.return_annotation is not _EMPTY:
             annotation = signature.return_annotation
 
-            if issubclass(typing.get_origin(annotation), typing.Generator):
+            if (
+                    isclass(typing.get_origin(annotation)) and
+                    issubclass(typing.get_origin(annotation), typing.Generator)
+            ):
                 data_type = typing.get_args(annotation)[0]
             else:
-                LOGGER.warning(f'Return type "{annotation}" of "{function_name}" is not a generator type.')
+                LOGGER.warning(f'Return type "{annotation}" of "{function_name}" is not a generator type.'
+                               f'The return type will not be checked.')
 
         def __set_up(kwargs: Dict[str, Any], args: Tuple[Any],
                      options_: Dict[str, Any], max_tries: int,
