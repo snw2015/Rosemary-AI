@@ -122,6 +122,10 @@ class TreeToRmlTreeTransformer(Transformer):
         element = RmlElement(True, ('$text',), text_tokens=tokens)
         return element
 
+    def ignore_text(self, items):  # noqa
+        text = items[0] if items else ''
+        return TextToken(TextToken.TYPE.PLAIN_TEXT, text)
+
     def plain_text(self, items):  # noqa
         return TextToken(TextToken.TYPE.PLAIN_TEXT, escape_plain_text(items[0]))
 
