@@ -17,6 +17,58 @@ from ..multi_modal.image import Image
 GptReturnType: TypeAlias = str | list[ChatCompletionMessageToolCall] | Dict[str, Any]
 
 
+def _get_tools_list(funcs):
+    if not isinstance(funcs, list):
+        raise RmlFormatException('"funcs" parameter must be a list of functions.')
+    tools = []
+    for func in funcs:
+        if not isinstance(func, Callable):
+            raise RmlFormatException('Each function in "funcs" must be a callable.')
+        else:
+            # Turn the function into description
+            params = inspect.signature(func).parameters
+            properties = {}
+            required = []
+            for param_name in params:
+                param = params[param_name]
+                if param.annotation == inspect.Parameter.empty or param.annotation == str:
+                    param_type = 'string'
+                elif param.annotation == int:
+                    param_type = 'integer'
+                elif param.annotation == float:
+                    param_type = 'number'
+                elif param.annotation == bool:
+                    param_type = 'boolean'
+                else:
+                    raise RmlFormatException(
+                        f'Unsupported parameter type: {param.annotation} for function {func.__name__}. '
+                        f'For now, Rosemary only supports str, int, float, and bool.'
+                    )
+                if param.default != inspect.Parameter.empty:
+                    LOGGER.warning(
+                        f'Function {func.__name__} has default value for parameter {param_name}. '
+                        f'Rosemary does not support default value for now.')
+                properties[param_name] = {
+                    'type': param_type
+                }
+                required.append(param_name)
+
+            tool = {
+                "type": "function",
+                "function": {
+                    "name": func.__name__,
+                    "description": func.__doc__,
+                    "parameters": {
+                        "type": "object",
+                        "properties": properties,
+                        "required": required,
+                        "additionalProperties": False,
+                    }
+                }
+            }
+            tools.append(tool)
+
+
 def _concatenate_delta() -> Generator[GptReturnType, ChoiceDelta, None]:
     text = None
     tool_calls = []
@@ -53,6 +105,19 @@ def _concatenate_delta() -> Generator[GptReturnType, ChoiceDelta, None]:
                     tool_calls.append(tool_call)
 
 
+def _get_result_from_completion(model_name, completion: ChatCompletion) -> GptReturnType:
+    choice = completion.choices[0]
+
+    LOGGER.info(f'Received response from {model_name}: "{choice.message}".')
+
+    if choice.finish_reason == 'tool_calls':
+        return choice.message.tool_calls
+    elif choice.finish_reason == 'stop':
+        return choice.message.content
+    else:
+        raise RequestFailedException(f'Unexpected finish reason: {choice.finish_reason}.')
+
+
 class GPTChatGenerator(AbstractContentGenerator[GptReturnType]):
     def __init__(self, model_name: str):
         super().__init__('OpenAI')
@@ -67,55 +132,7 @@ class GPTChatGenerator(AbstractContentGenerator[GptReturnType]):
 
         if 'funcs' in options:
             funcs = options.pop('funcs')
-            if not isinstance(funcs, list):
-                raise RmlFormatException('"funcs" parameter must be a list of functions.')
-            tools = []
-            for func in funcs:
-                if not isinstance(func, Callable):
-                    raise RmlFormatException('Each function in "funcs" must be a callable.')
-                else:
-                    # Turn the function into description
-                    params = inspect.signature(func).parameters
-                    properties = {}
-                    required = []
-                    for param_name in params:
-                        param = params[param_name]
-                        if param.annotation == inspect.Parameter.empty or param.annotation == str:
-                            param_type = 'string'
-                        elif param.annotation == int:
-                            param_type = 'integer'
-                        elif param.annotation == float:
-                            param_type = 'number'
-                        elif param.annotation == bool:
-                            param_type = 'boolean'
-                        else:
-                            raise RmlFormatException(
-                                f'Unsupported parameter type: {param.annotation} for function {func.__name__}. '
-                                f'For now, Rosemary only supports str, int, float, and bool.'
-                            )
-                        if param.default != inspect.Parameter.empty:
-                            LOGGER.warning(f'Function {func.__name__} has default value for parameter {param_name}. '
-                                           f'Rosemary does not support default value for now.')
-                        properties[param_name] = {
-                            'type': param_type
-                        }
-                        required.append(param_name)
-
-                    tool = {
-                        "type": "function",
-                        "function": {
-                            "name": func.__name__,
-                            "description": func.__doc__,
-                            "parameters": {
-                                "type": "object",
-                                "properties": properties,
-                                "required": required,
-                                "additionalProperties": False,
-                            }
-                        }
-                    }
-                    tools.append(tool)
-            options['tools'] = tools
+            options['tools'] = _get_tools_list(funcs)
 
         return_json = False
 
@@ -143,18 +160,6 @@ class GPTChatGenerator(AbstractContentGenerator[GptReturnType]):
             **options
         }
 
-    def _get_result_from_completion(self, completion: ChatCompletion) -> GptReturnType:
-        choice = completion.choices[0]
-
-        LOGGER.info(f'Received response from {self.model_name}: "{choice.message}".')
-
-        if choice.finish_reason == 'tool_calls':
-            return choice.message.tool_calls
-        elif choice.finish_reason == 'stop':
-            return choice.message.content
-        else:
-            raise RequestFailedException(f'Unexpected finish reason: {choice.finish_reason}.')
-
     def generate(self, data: Dict[str, str | List[Dict[str, str | List]]],
                  options: Dict[str, Any], dry_run: bool, api_key: str = None) -> GptReturnType:
         messages, options, api_key, return_json = self._set_up(data, options, dry_run, api_key)
@@ -169,7 +174,7 @@ class GPTChatGenerator(AbstractContentGenerator[GptReturnType]):
             model=self.model_name, messages=messages,
             **options)
 
-        return self._get_result_from_completion(completion)
+        return _get_result_from_completion(self.model_name, completion)
 
     async def generate_async(self, data: Dict[str, str | List[Dict[str, str | List]]],
                              options: Dict[str, Any], dry_run: bool, api_key: str = None) -> GptReturnType:
@@ -185,7 +190,7 @@ class GPTChatGenerator(AbstractContentGenerator[GptReturnType]):
             model=self.model_name, messages=messages,
             **options)
 
-        return self._get_result_from_completion(completion)
+        return _get_result_from_completion(self.model_name, completion)
 
     def generate_stream(self, data: Dict[str, str | List[Dict[str, str | List]]],
                         options: Dict[str, Any],
