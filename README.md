@@ -198,12 +198,33 @@ Rosemary currently supports the following AI models (more models will be added s
 | OpenAI    | Embedding 3 Large | gpt-embed-3l                       |
 | OpenAI    | Embedding Ada 002 | gpt-embed-ada                      |
 
+### Use Unsupported Models
+If a model you want to use is not supported yet by Rosemary, but provided by the provider listed above, you can register your own models like this way:
+```python
+from rosemary_ai import register_generator
+from rosemary_ai.models.gpt_generator import GPTGenerator
+
+register_generator('my-model-name', GPTGenerator('official-model-name'))
+```
+
+The official model name is the one you use to call the providers' API. For example, the official model name of GPT-3.5 Turbo is `gpt-3.5-turbo`,
+as you find in [this page](https://platform.openai.com/docs/models).
+
+> [!WARNING]
+> This method is not recommended but just a workaround before the model is officially supported by Rosemary.
+> The model may not work as expected when the provider changes its API.
+
+This can also be used to register a fine-tuned model, just follow the format of the provider's API.
+
+> [!WARNING]
+> The support for fine-tuned model is not tested completely, and may not work as expected.
 
 ## Roadmap
 
 Rosemary is still in the early stage of development. We are looking forward to adding more features and improving the
 usability of the system. Here are some of the features we are planning to add in the future:
 
+- Detailed documentation and tutorials
 - More AI endpoint support
 - Stronger and more flexible template language
 - More built-in templates
